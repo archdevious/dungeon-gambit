@@ -1085,12 +1085,13 @@ function bleedAct(S,u){if(!u||u.hp<=0||!(u.st.bleed>0))return;var bd=u.st.bleed*
 /* ---- bonus round: tower defense ----
    Foes walk a track to the exit and never fight back. Heroes stand still and hit whatever walks into range. Each kill pays 1 gold;
    the round ends when 5 foes have reached the exit. Foes get tougher the longer it lasts. */
-var TD_PACE={goblin:1,slime:1.3,bat:.75,spider:.9,skeleton:1.15,cultist:1.05},TD_HPF={goblin:1,slime:1.25,bat:.7,spider:.9,skeleton:1.3,cultist:.85};
+var TD_PACE={goblin:1,slime:1.3,bat:.75,spider:.9,skeleton:1.15,cultist:1.05},TD_HPF={goblin:1,slime:1.25,bat:.5,spider:.9,skeleton:1.3,cultist:.85};
 function tdState(c){return {paths:c.paths,spd:c.spd,hp0:c.hp0,g1:c.g1,g2:c.g2,gap0:c.gap0,gapMin:c.gapMin,gapDec:c.gapDec,maxLeaks:c.maxLeaks||5,n:0,next:8,leaks:0,kills:0,maxTick:c.maxTick||5000};}
 function tdHP(T,n){return T.hp0*(1+T.g1*n+T.g2*n*n);}
 function tdSpawn(S){var T=S.td,n=T.n++,path=T.paths[n%T.paths.length],pool=['goblin','slime','bat'];if(n>=5)pool=pool.concat(['spider','skeleton']);if(n>=11)pool.push('cultist');
   var k=pool[Math.floor(rnd()*pool.length)],u=monsterUnit(k,1,path[0][0],path[0][1]);
   u.hp=u.mhp=tdHP(T,n)*TD_HPF[k];u.atk=0;u.mmax=0;u.mana=0;u.onhit=[];u.td=1;u.pi=0;u.pth=path;u.tdc=0;u.tdn=Math.max(3,Math.round(T.spd*TD_PACE[k]));u.cd=999;
+  if(k==='bat'){u.tdbl=1;u.mmax=100;u.mana=Math.floor(rnd()*60);u.tdbr=100/90;} /* assassins: mana fills over time, then they blink 3 hexes ahead; in return they have less health */
   S.units.push(u);}
 function tdStep(S){var T=S.td,us,i,u,tg,foes;
   if(S.tick>=T.next){tdSpawn(S);T.next=S.tick+Math.max(T.gapMin,Math.round(T.gap0-T.gapDec*T.n));}
@@ -1102,6 +1103,7 @@ function tdStep(S){var T=S.td,us,i,u,tg,foes;
     if(u.stun>0){u.stun--;continue;}
     if(u.td){ /* a walker: one hex every u.tdn ticks, nothing else */
       if(buffVal(u,'root'))continue;
+      if(u.tdbl){u.mana+=u.tdbr;if(u.mana>=u.mmax){u.mana=0;var np=Math.min(u.pi+3,u.pth.length-2);if(np>u.pi){u.pi=np;u.q=u.pth[np][0];u.r=u.pth[np][1];u.tdc=0;ev(S,{k:'blink',a:u.id});continue;}}}
       if(++u.tdc>=u.tdn){u.tdc=0;u.pi++;
         if(u.pi>=u.pth.length){u.hp=0;u.leaked=1;u.dead=true;T.leaks++;ev(S,{k:'leak',t:u.id});continue;}
         u.q=u.pth[u.pi][0];u.r=u.pth[u.pi][1];bleedAct(S,u);}
@@ -1499,7 +1501,7 @@ var ROOMS={
 var REG_ROOMS=['river','ruins','forest','chasm','crypt','snow','swamp','arena','canyon','mage','barricade','prison'],BOSS_ROOMS=['shrine','lava','throne'];
 /* ---------- bonus rounds: tower defense. Foes walk a track to the exit; heroes stand still on open ground. ---------- */
 RDECO.z='path';
-ROOMS.tdA={n:'Bonus: Dungeon',pal:'crypt',td:1,trk:'#7d746c',spd:12,m:["zzzzzzp", ".....z.", "zzz...z", "zpzp.pz", "z.zzzzz", "zp...p.", ".zzzzzz", "p.....p"],paths:[[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[5,1],[6,2],[6,3],[6,4],[5,4],[4,4],[3,4],[2,4],[2,3],[2,2],[1,2],[0,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6]]],note:'A winding dungeon corridor.'};
+ROOMS.tdA={n:'Bonus: Dungeon',pal:'crypt',td:1,trk:'#7d746c',spd:12,hpm:1.2,m:["zzzzzzp", ".....z.", "zzz...z", "zpzp.pz", "z.zzzzz", "zp...p.", ".zzzzzz", "p.....p"],paths:[[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[5,1],[6,2],[6,3],[6,4],[5,4],[4,4],[3,4],[2,4],[2,3],[2,2],[1,2],[0,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6]]],note:'A winding dungeon corridor.'};
 ROOMS.tdB={n:'Bonus: Forest',pal:'grass',td:1,trk:'#9a7a50',spd:12,m:["zzzz..t", "t..z..t", ".zzzzz.", "z....z.", "zttt..z", "z...t.z", ".zzzzzz", "tt.z.t."],paths:[[[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[2,2],[1,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[3,7]],[[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[4,2],[5,2],[5,3],[6,4],[6,5],[6,6],[5,6],[4,6],[3,6],[3,7]]],note:'The path splits, then comes back together.'};
 ROOMS.tdC={n:'Bonus: Snowfield',pal:'snow',td:1,trk:'#8d98a8',spd:12,m:["zzz..nz", "..zn.nz", "zzz.zzz", "z...z..", ".zz.z.n", "n.zz.n.", ".n.z...", "nn.zzzz"],paths:[[[0,0],[1,0],[2,0],[2,1],[2,2],[1,2],[0,2],[0,3],[1,4],[2,4],[2,5],[3,6],[3,7],[4,7],[5,7],[6,7]],[[6,0],[6,1],[6,2],[5,2],[4,2],[4,3],[4,4],[3,5],[2,5],[3,6],[3,7],[4,7],[5,7],[6,7]]],note:'Two roads from the north join near the end.'};
 var TD_ROOMS=['tdA','tdB','tdC'];
@@ -1708,7 +1710,7 @@ function genBonus(){var seen=G.tdSeen||[],k;if(G.act===1)seen=[];
   G.tdSeen=seen.concat([k]);return {diff:'bonus',td:true,name:'Bonus round',room:k,foes:[],obs:roomInfo(k).obs.slice(),reward:{gold:0}};}
 function startBonus(){G.enc=genBonus();G.opts=null;G.rr=0;enterPrep();toast('Bonus round: stop the foes. 1 gold for every kill.');}
 function tdParams(){var R=ROOMS[G.enc.room],a=Math.min(G.act,ACTS),T=TUNE.td;
-  return {paths:R.paths,spd:R.spd,hp0:T.hp0[a-1]*(G.act>ACTS?deepMult(G.act):1),g1:T.g1,g2:T.g2,gap0:T.gap0,gapMin:T.gapMin,gapDec:T.gapDec,maxLeaks:5};}
+  return {paths:R.paths,spd:R.spd,hp0:T.hp0[a-1]*(R.hpm||1)*(G.act>ACTS?deepMult(G.act):1),g1:T.g1,g2:T.g2,gap0:T.gap0,gapMin:T.gapMin,gapDec:T.gapDec,maxLeaks:5};}
 function encHTML(e){
   var units=e.foes.map(function(f){if(f.type==='boss')return '<img class="big" src="'+spriteURL(BOSSES[f.i].spr,4,'mon')+'" alt="">';
     if(f.type==='hero')return '<img src="'+spriteURL(HEROES[f.hid].spr,2,'foe')+'" alt="" title="'+esc(HEROES[f.hid].n)+'">';return '<img src="'+spriteURL(MONSTERS[f.key].spr,2,'mon')+'" alt="">';}).join('');
