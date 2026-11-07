@@ -154,7 +154,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .choice small{color:var(--muted);font-size:17px}
 .choice .big{width:96px!important;height:96px!important}
 .dmgrow{display:grid;grid-template-columns:120px 1fr 90px;gap:8px;align-items:center;font-size:17px}
-.dmgrow{margin-top:14px}.dmgrow i{height:8px;display:block}.dmgbar{position:relative;display:block;height:8px;margin-top:22px}.dmgseg{display:flex;gap:1px}.dmgbar em{position:absolute;font-style:normal;font-size:14px;line-height:1;white-space:nowrap}
+.dmgrow{margin-top:14px}.dmgrow i{height:8px;display:block}.dmgbar{display:block;margin-top:4px}.dmglabs{display:flex;height:18px;overflow:visible}.dmglabs em{flex:0 0 auto;min-width:max-content;font-style:normal;font-size:14px;line-height:18px;white-space:nowrap}.dmgseg{display:flex;gap:1px;height:8px}
 .dmgrow span:last-child{text-align:right;color:var(--muted)}
 .dmgsub{font-size:14px;color:var(--muted);margin:-4px 0 2px 0;padding-left:2px}
 .sgrid{display:grid;grid-template-columns:130px 1fr 1fr;gap:8px;align-items:center;font-size:17px}
@@ -1780,10 +1780,10 @@ function damageReport(){
   /* per hero */
   var mx=Math.max(1,U[0]?dt(U[0])+U[0].healed:1);
   h+='<div class="h">WHO DID THE WORK</div>'+U.map(function(u){var v=R(dt(u)),hh=R(u.healed),dk=u.dk||{};
-    var segs='',labs='',pos=0,n2=0;SRC.concat([['heal','Healing','#3fb8a8']]).forEach(function(x){var val=x[0]==='heal'?hh:(dk[x[0]]||0);if(val<1)return;var w=val/mx*100,hi=w<11?(n2++%2?2:1):0;
+    var segs='',labs='',pos=0,n2=0;SRC.concat([['heal','Healing','#3fb8a8']]).forEach(function(x){var val=x[0]==='heal'?hh:(dk[x[0]]||0);if(val<1)return;var w=val/mx*100;
       segs+='<i title="'+x[1].toLowerCase()+' '+R(val)+'" style="width:'+w+'%;background:'+x[2]+'"></i>';
-      labs+='<em style="left:'+pos+'%;color:'+x[2]+';bottom:'+(10+hi*11)+'px">'+R(val)+'</em>';pos+=w;});
-    return '<div class="dmgrow"><span>'+esc(u.name)+'</span><span class="dmgbar">'+labs+'<span class="dmgseg">'+segs+'</span></span><span>'+v+(hh?' · +'+hh:'')+'</span></div>'
+      labs+='<em style="width:'+w+'%;color:'+x[2]+'">'+R(val)+'</em>';pos+=w;});
+    return '<div class="dmgrow"><span>'+esc(u.name)+'</span><span class="dmgbar"><span class="dmglabs">'+labs+'</span><span class="dmgseg">'+segs+'</span></span><span>'+v+(hh?' · +'+hh:'')+'</span></div>'
       +'<div class="dmgsub">took '+R(u.taken||0)+(u.hp<=0?' · fell':'')+'</div>';}).join('');
   return h;}
 /* ---------- dialogs ---------- */
@@ -1791,7 +1791,7 @@ var dlgOpen=false;
 function dialog(html,choices,modal,single,mini){
   var o=$('ov');o.innerHTML='';$('minibar').hidden=true;var d=el('div','dlg pp',html);
   if(mini){var hb=el('button','btn hidebtn','HIDE ▾');hb.type='button';hb.onclick=function(){o.hidden=true;var mb=$('minibar');mb.querySelector('span').textContent=mini;mb.hidden=false;};d.insertBefore(hb,d.firstChild);}
-  var row=el('div',single?'':'choices');if(single)row.style.display='flex';
+  var row=el('div',single?'':'choices');if(single){row.style.display='flex';row.style.flexWrap='wrap';}
   choices.forEach(function(c){var b=el('button',single?'btn go':'choice '+(c.cls||''),c.html);b.type='button';b.onclick=function(){closeDialog();c.fn();};row.appendChild(b);});
   if(!modal){var x=el('button','btn','Cancel');x.type='button';x.onclick=closeDialog;row.appendChild(x);}
   d.appendChild(row);o.appendChild(d);o.hidden=false;o.scrollTop=0;dlgOpen=true;
@@ -1847,9 +1847,9 @@ function showTitle(){phase='menu';closeDialog();renderAll();
   var sv=loadSave(),best=META.bestAct?(META.wins?'Full clears: '+META.wins+'. ':'')+'Deepest: act '+Math.min(3,META.bestAct)+(META.bestAct<4?', step '+META.bestStep:'')+'.'+(META.ascMax?' Ascension unlocked: '+META.ascMax+'.':'')+(META.bestDeep?' Endless record: depth '+META.bestDeep+'.':''):'';
   var ch=[];if(sv)ch.push({html:'<b>Continue run</b>',fn:function(){G=sv;resumeRun();}});
   ch.push({html:'<b>'+(sv?'New run':'Begin')+'</b>',fn:function(){if(sv)endRunConfirm(sv,true);else startRun();}});
-  if(sv)ch.push({html:'<b>Retire run</b><span>End this run and collect its Renown.</span>',fn:function(){endRunConfirm(sv,false);}});
+  if(sv)ch.push({html:'<b>Retire run</b>',fn:function(){endRunConfirm(sv,false);}});
   ch.push({html:'<b>Camp ('+META.renown+')</b>',fn:function(){showCamp(showTitle);}});
-  ch.push({html:'<b>Save transfer</b><span>Move your Renown, upgrades and run between versions or devices.</span>',fn:function(){showTransfer();}});
+  ch.push({html:'<b>Save transfer</b>',fn:function(){showTransfer();}});
   ch.push({html:'<b>How to play</b>',fn:function(){showGuide(showTitle);}});
   dialog('<h2>Dungeon Gambit</h2><p>Lead a party of heroes down three acts of a monster-filled dungeon. Recruit, level up, choose paths, stack effects, and place your party. Then watch the fight play out.</p>'+(best?'<p class="muted">'+best+'</p>':''),ch,true,true);}
 function showTransfer(){
@@ -1859,7 +1859,8 @@ function showTransfer(){
   function mk(t,fn,cls){var b=el('button','btn'+(cls||''),t);b.type='button';b.onclick=fn;row.appendChild(b);return b;}
   mk('Export',function(){var o={};try{if(G&&G.party&&G.party.length&&phase!=='over'){G.savedAt=Date.now();localStorage.setItem('dd1_save',JSON.stringify(G));}['dd1_meta','dd1_save'].forEach(function(k){var v=localStorage.getItem(k);if(v)o[k]=v;});}catch(e){}ta.value=JSON.stringify(o);ta.focus();ta.select();toast('Select all and copy the text');});
   mk('Copy',function(){ta.focus();ta.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}if(!ok&&navigator.clipboard)try{navigator.clipboard.writeText(ta.value);ok=true;}catch(e){}toast(ok?'Copied':'Select the text and copy it');});
-  mk('Import',function(){var o;try{o=JSON.parse(ta.value.trim());}catch(e){return toast('That is not a valid save');}
+  mk('Import',function(){var txt=ta.value,a0=txt.indexOf('{'),b0=txt.lastIndexOf('}');if(!txt.trim())return toast('Paste your export text into the box first');if(a0<0||b0<a0)return toast('No save found: the text has no { } in it ('+txt.length+' characters)');
+    var o;try{o=JSON.parse(txt.slice(a0,b0+1));}catch(e){return toast('Save text is damaged or cut off ('+txt.length+' characters). Copy it again in full.');}
     var m=null,r=null;try{m=o.dd1_meta?JSON.parse(o.dd1_meta):null;r=o.dd1_save?JSON.parse(o.dd1_save):null;}catch(e){return toast('That is not a valid save');}
     if(!m&&!r)return toast('Nothing to import in that text');
     try{if(m){META=m;metaInit();saveMeta();}if(r&&r.party)localStorage.setItem('dd1_save',JSON.stringify(r));}catch(e){return toast('Could not store the save');}
