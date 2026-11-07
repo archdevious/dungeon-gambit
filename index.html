@@ -2223,8 +2223,8 @@ function homeScreen(ch,best){
   st.innerHTML='<div class="harch">'+DUNGEON_SVG+'</div><div class="hstep"></div><div class="hglow" style="left:-60px;top:290px"></div><div class="hglow" style="right:-60px;top:290px"></div>'+
     '<div class="htorch" style="left:15px">'+TORCH_USE+'</div><div class="htorch" style="right:15px;transform:scaleX(-1)">'+TORCH_USE+'</div>'+
     '<div class="hsh" style="left:90px;top:536px;width:200px;height:28px"></div><div class="hsh" style="left:250px;top:540px;width:110px;height:22px"></div><div class="hsh" style="left:70px;top:566px;width:80px;height:10px;opacity:.6"></div>'+
-    '<img class="hhero hbat" alt="" src="'+HOMEI.bat+'" style="left:92px;top:310px;width:72px;filter:brightness(.92) saturate(.92) drop-shadow(0 6px 5px #000a)">'+
-    '<img class="hhero hkn" alt="" src="'+HOMEI.knight+'" style="left:94px;top:346px;width:200px">'+
+    '<img class="hhero hbat" alt="" src="'+HOMEI.bat+'" style="left:92px;top:292px;width:72px;filter:brightness(.92) saturate(.92) drop-shadow(0 6px 5px #000a)">'+
+    '<img class="hhero hkn" alt="" src="'+HOMEI.knight+'" style="left:80px;top:346px;width:200px">'+
     '<img class="hhero hth" alt="" src="'+HOMEI.thorne+'" style="left:222px;top:368px;width:150px">'+
     '<h1 class="htitle">DUNGEON<br>GAMBIT</h1>';
   h.insertAdjacentHTML('afterbegin','<div class="hray"></div><div class="hemb"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="hpil l"></div><div class="hpil r"></div><div class="hban l"></div><div class="hban r"></div>');
@@ -2235,7 +2235,7 @@ function homeScreen(ch,best){
   var row=el('div','hrow');sm.forEach(function(c){var b=el('button','hb',c.html.replace(/<\/?b>/g,''));b.type='button';b.onclick=function(){closeDialog();c.fn();};row.appendChild(b);});bs.appendChild(row);
   hin.appendChild(bs);if(best){hin.appendChild(el('div','hbest',best));}
   h.appendChild(hin);o.appendChild(h);o.hidden=false;o.scrollTop=0;dlgOpen=true;
-  var z=Math.min(innerWidth/420,innerHeight/820,1.5);if(z<1||z>1.05)hin.style.zoom=z;}
+  var z=Math.min(innerWidth/420,innerHeight/820,1.5);if(z<1||z>1.05){hin.style.zoom=z;var fl=h.querySelector('.hflr');if(fl)fl.style.setProperty('top',(580*z)+'px','important');}}
 function showStats(back){var s=ST(),N=function(n){n=Math.round(n||0);return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e4?Math.round(n/1e3)+'k':String(n);},HN=function(k){return HEROES[k]?HEROES[k].n:k;},
   tm=function(t){return Math.floor(t/60)+':'+('0'+(t%60)).slice(-2);},c=function(b,t){return '<div class="sc"><b>'+b+'</b><span>'+t+'</span></div>';},r=function(a,b){return '<div class="sr"><span>'+a+'</span><b>'+b+'</b></div>';};
   var runs=META.runs||0,fights=s.fw+s.fl,h='<h2>Stats</h2><div class="sg">'+c(runs,'Runs started')+c((META.wins||0)+(runs?' · '+Math.round(100*(META.wins||0)/runs)+'%':''),'Runs cleared')+c(META.bestAct?'Act '+Math.min(3,META.bestAct)+(META.bestDeep?' · Deep '+META.bestDeep:''):'-','Furthest reached')+c(N(META.earned),'Renown earned')+'</div>';
