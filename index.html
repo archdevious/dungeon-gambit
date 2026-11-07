@@ -154,7 +154,8 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .choice small{color:var(--muted);font-size:15px}
 .choice .big{width:96px!important;height:96px!important}
 .dmgrow{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center;font-size:15px}
-.dmgrow{margin-top:14px}.dmgrow i{height:8px;display:block}.dmgbar{display:block;margin-top:4px}.dmglabs{display:block;position:relative;margin-bottom:3px}.dmglabs em{position:absolute;font-style:normal;font-size:14px;line-height:18px;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;font-weight:700}.dmglabs em img,.eic{width:16px;height:16px;image-rendering:pixelated;flex:0 0 auto}.eic{vertical-align:-3px;margin-right:4px}.dmgseg{display:flex;gap:1px;height:8px}.dmgline{display:flex;align-items:flex-end;gap:10px}.dmgtrack{display:block;flex:0 0 auto;min-width:0}.dmgtot{font-weight:400;color:var(--muted);white-space:nowrap;line-height:8px;font-size:15px}
+.dmgrow{margin-top:14px}.dmgrow i{height:8px;display:block}.dmgbar{display:block;margin-top:4px}.sg{display:grid;grid-template-columns:1fr 1fr;gap:6px}.sc{background:#efe4c8;border:1px solid #c4ad82;padding:6px 8px}.sc b{display:block;font-size:17px}.sc span{font-size:11px;color:var(--muted)}.sr{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #c4ad82;padding:3px 0}.sb{border:1px solid #c4ad82;padding:6px 8px;margin-bottom:6px;background:#efe4c8}.sb div{display:flex;justify-content:space-between}.sb i{font-style:normal;color:var(--ok)}.sb small{color:var(--muted)}
+.dmglabs{display:block;position:relative;margin-bottom:3px}.dmglabs em{position:absolute;font-style:normal;font-size:14px;line-height:18px;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;font-weight:700}.dmglabs em img,.eic{width:16px;height:16px;image-rendering:pixelated;flex:0 0 auto}.eic{vertical-align:-3px;margin-right:4px}.dmgseg{display:flex;gap:1px;height:8px}.dmgline{display:flex;align-items:flex-end;gap:10px}.dmgtrack{display:block;flex:0 0 auto;min-width:0}.dmgtot{font-weight:400;color:var(--muted);white-space:nowrap;line-height:8px;font-size:15px}
 
 .dmgsub{font-size:12px;color:var(--muted);margin:-4px 0 2px 0;padding-left:2px}
 .sgrid{display:grid;grid-template-columns:130px 1fr 1fr;gap:8px;align-items:center;font-size:15px}
@@ -421,7 +422,7 @@ var HEROES={
   ab:{n:'Cinder Ring',d:'Blasts the biggest cluster of foes: 120 damage and 3 burn in a ring.'},
   paths:[{k:'pyre',n:'Wildfire',d:'Cinder Ring applies 4 burn and also scorches every other burning foe anywhere for 100 damage.'},{k:'frostfire',n:'Hearthfire',cls2:'sup',d:'Cinder Ring also warms every ally: heals them 50 and they attack 15% faster for 4s.'},{k:'kindle',n:'Phoenix',d:'Once per fight, when Ember falls she rises with 40% health in a burst of flame (120 damage and 3 burn around her).'}]},
  ashling:{n:'Ashling',role:'Imp · assassin',spr:'imp',pw:1.24,th:['burn','bleed'],hp:410,atk:36,as:1.0,rng:1,arm:10,mana:60,dive:true,
-  ab:{n:'Hellstep',d:'Leaps to the weakest foe (or the boss, in boss fights) and strikes for 130 damage and 3 burn. Starts each fight behind enemy lines.'},
+  ab:{n:'Hellstep',d:'Leaps to the weakest foe (or the boss, in boss fights) and strikes for 130 damage and 3 burn. Starts each fight behind enemy lines. Deals 25% more damage to bosses.'},
   paths:[{k:'gutter',n:'Gutter',d:'If Hellstep kills its target, Ashling casts it again at once (up to 3 times in a row).'},{k:'smoke',n:'Hellfire',cls2:'cast',d:'Hellstep explodes where she lands: 80 damage and 3 burn to every foe next to the target.'},{k:'pick',n:'Pickpocket',d:'Steals 1 gold with each Hellstep (up to 2 per fight).',eco:1}]},
  moss:{n:'Mother Moss',role:'Druid · support',spr:'druid',pw:1.19,th:['poison','shield'],hp:460,atk:18,as:.7,rng:3,arm:10,mana:55,
   ab:{n:'Bloom',d:'Heals every ally for 110.'},
@@ -885,13 +886,14 @@ function dmg(S,src,t,amt,kind){if(t.link)t=t.link; /* the 2-hex gate shares one 
   if(t.st.poison>0&&S.tl[at].poison>=2)m*=S.tl[at].poison===3?1.2:1.12;
   if(kind==='atk'){m*=100/(100+Math.max(0,t.arm+buffVal(t,'arm')));if(at===0)m*=1+rv('whet',S.relics)/100;if(at===0&&src&&src.rng>1)m*=1+rv('quiver',S.relics)/100;}
   if(t.team===0&&t.rng<=1)m*=1-rv('bell',S.relics)/100;
+  if(t.boss&&src&&src.key==='ashling'&&src.kind==='hero')m*=1.25;
   var d=Math.max(1,Math.round(amt*m)),left=d;
   if(t.shield>0){var a=Math.min(t.shield,left);t.shield-=a;left-=a;
     var rf=buffVal(t,'reflect');if(rf&&src&&src!==t&&src.hp>0&&kind!=='thorns'&&kind!=='dot')dmg(S,t,src,a*rf,'thorns');
     if(t.wardSh&&t.shield<=0){var wx=t.wardSh;t.wardSh=0;within(S,t,1-t.team,1).forEach(function(e){dmg(S,t,e,wx*.6,'spell');});ev(S,{k:'aoe',q:t.q,r:t.r,rad:1,c:'#ff8a3d'});}}
   var hb=t.hp>0?t.hp:0,eff=(d-left)+(left<hb?left:hb),kk=kind==='dot'?(S.dt||'dot'):kind,ST=S.stt[t.team===1?0:1];ST.dm[kk]=(ST.dm[kk]||0)+eff;ST.blk+=(d-left);t.taken=(t.taken||0)+eff;if(src){var dk=src.dk||(src.dk={});dk[kk]=(dk[kk]||0)+eff;}
   else if(kind==='dot'&&t.sw&&t.sw[kk]){var w=t.sw[kk],tw=0,id;for(id in w)tw+=w[id];if(tw>0)for(id in w){var au=S.units.filter(function(x){return x.id==id;})[0];if(au){var ak=au.dk||(au.dk={});ak[kk]=(ak[kk]||0)+eff*w[id]/tw;}}}
-  t.hp-=left;if(src)src.dealt+=d;t.flash=3;
+  t.hp-=left;if(src){src.dealt+=d;if(src.team===0&&d>(S.mh||0)){S.mh=d;S.mhk=src.key;}}t.flash=3;
   ev(S,{k:'hit',a:src?src.id:0,t:t.id,d:d,kind:kind});
   if(kind!=='dot'&&kind!=='thorns')t.mana=Math.min(t.mmax||0,t.mana+4*(t.mregen||1));
   if(src&&kind==='atk'){var ls=src.leech+buffVal(src,'leech');if(src.key==='greymaw'&&src.path==='hide'&&src.hp<src.mhp*.6)ls+=.25;if(t.st.bleed>0&&S.tl[src.team].bleed>=2)ls+=S.tl[src.team].bleed===3?.25:.15;if(ls>0)heal(S,src,src,d*ls);}
@@ -1207,7 +1209,17 @@ function restHeal(){return 15;}
 /* endless: acts past 3 keep scaling */
 function deepMult(act){return Math.pow(1.55,Math.max(0,act-ACTS));}
 function renownFor(){var s=G.stats,r=s.wins+(s.nl||0)+10*s.bosses /* 1 per fight, won or lost (boss losses don't count) */+(G.cleared?20:0);return Math.round(r*(1+.15*(G.asc||0)));}
-function finishRun(){if(!G||G.renownDone)return 0;G.renownDone=true;var r=renownFor();META.renown+=r;META.earned+=r;commitXP();
+/* lifetime stats: cheap tallies at the end of each fight and run; the page is built only when opened */
+function ST(){META.st=META.st||{};var s=META.st;['fw','fl','bw','kills','dmg','heal','gold'].forEach(function(k){s[k]=s[k]||0;});s.hr=s.hr||{};s.bn=s.bn||{};s.rel=s.rel||{};return s;}
+function statFight(win,boss){try{var s=ST(),T=S.stt[0],n=0,k;if(win){s.fw++;if(boss){s.bw++;var sec=Math.round(S.tick/10);if(!s.bt||sec<s.bt)s.bt=sec;}}else s.fl++;
+  s.kills+=T.kills;for(k in T.dm)s.dmg+=T.dm[k];
+  S.units.forEach(function(u){if(u.team!==0||u.kind!=='hero')return;var t=0,q;for(q in (u.dk||{}))t+=u.dk[q];s.heal+=u.healed||0;
+    var r=s.hr[u.key]=s.hr[u.key]||{f:0,w:0};r.f++;if(win)r.w++;if(!s.bf||t>s.bf.v)s.bf={v:Math.round(t),h:u.key};});
+  if(S.mh&&(!s.bh||S.mh>s.bh.v))s.bh={v:S.mh,h:S.mhk};
+  saveMeta();}catch(e){}}
+function statBonus(room,kills){try{var s=ST(),b=s.bn[room]=s.bn[room]||{n:0,best:0,tot:0};b.n++;b.tot+=kills;if(kills>b.best)b.best=kills;saveMeta();}catch(e){}}
+function statGold(n){try{ST().gold+=n;}catch(e){}}
+function finishRun(){if(!G||G.renownDone)return 0;G.renownDone=true;try{var s=ST();(G.relics||[]).forEach(function(k){s.rel[k]=(s.rel[k]||0)+1;});}catch(e){}var r=renownFor();META.renown+=r;META.earned+=r;commitXP();
   if(G.endless&&G.act>META.bestDeep)META.bestDeep=G.act;saveMeta();return r;}
 /* foe scaling from ascension (applied to fresh units) */
 function ascFoes(units){units.forEach(function(u){var hm=1,am=1;
@@ -1741,6 +1753,7 @@ function endFight(){if(phase!=='fight')return;
   if(phase!=='fight')return;phase='result';
   if(G.enc.td)return endBonus();
   var win=S.winner===0,boss=G.enc.diff==='boss',report=damageReport(),msg='';
+  statFight(win,boss);
   var gold=0,pathGold=S.gold,noneFell=S.units.filter(function(u){return u.team===0;}).every(function(u){return u.hp>0;});
   onBoard().forEach(function(h){if(h.path==='apoth')pathGold+=1;});
   G.gold+=pathGold;
@@ -1751,6 +1764,7 @@ function endFight(){if(phase!=='fight')return;
   var cof=S.units.filter(function(u){return u.coffer;}),cofOk=cof.filter(function(u){return u.hp>0;}),cofLost=cof.length-cofOk.length,cofGold=S.winner===0?cofOk.length*chestGold():0;G.gold+=cofGold;G.cofferPos=[];
   var cofMsg=(cofGold?'<p>Your treasure chest'+(cofOk.length>1?'s':'')+' survived: <b style="color:var(--gold)">+'+cofGold+' gold</b>.</p>':'')+(cofLost?'<p style="color:var(--foe)">'+(cofLost>1?cofLost+' treasure chests were':'A treasure chest was')+' smashed.</p>':'')+(cof.length&&S.winner!==0&&cofOk.length?'<p style="color:var(--foe)">You lost the fight, so your chest'+(cofOk.length>1?'s pay':' pays')+' nothing.</p>':'');
   var medic=0;if(win){G.stats.wins++;gold=G.enc.reward.gold+rv('tooth',G.relics);G.gold+=gold;if(boss)G.stats.bosses++;
+    statGold(gold+pathGold+cofGold);
     if(upg('medic')){var hb=G.hp;G.hp=Math.min(maxHp(),G.hp+3*upg('medic'));medic=G.hp-hb;}}
   else{G.stats.losses++;if(!boss)G.stats.nl=(G.stats.nl||0)+1;var left=alive(S,1),loss=boss?30+10*G.act:12+6*G.act+left.reduce(function(a,u){return a+(u.kind==='hero'?12:Math.round((MONSTERS[u.key]?MONSTERS[u.key].pw:1)*6));},0);
     loss=Math.min(loss,boss?60:55);G.hp-=loss;gold=(boss?[5,7,9][ai()]:TUNE.gold[0])+rv('tooth',G.relics);G.gold+=gold;
@@ -1765,7 +1779,7 @@ function endFight(){if(phase!=='fight')return;
 }
 function endBonus(){var T=S.td,report=damageReport(),kills=T.kills,pathGold=S.gold,tooth=rv('tooth',G.relics);
   onBoard().forEach(function(h){if(h.path==='apoth')pathGold+=1;});
-  G.gold+=kills+pathGold+tooth;renderAll();
+  G.gold+=kills+pathGold+tooth;statBonus(G.enc.room,kills);statGold(kills+pathGold+tooth);renderAll();
   var body='<h2>Bonus round complete</h2><p>You stopped <b>'+kills+'</b> foe'+(kills===1?'':'s')+' and earn <b style="color:var(--gold)">'+(kills+tooth)+' gold</b>.</p>'+(pathGold?'<p>Your heroes\' paths bring in <b style="color:var(--gold)">'+pathGold+' more gold</b>.</p>':'')+report;
   dialog(body,[{html:'<b>Continue</b>',fn:function(){afterRewards(true);}}],true,true);}
 function afterRewards(win){
@@ -1928,9 +1942,20 @@ function showTitle(){phase='menu';closeDialog();renderAll();
   ch.push({html:'<b>'+(sv?'New run':'Begin')+'</b>',fn:function(){if(sv)endRunConfirm(sv,true);else startRun();}});
   if(sv)ch.push({html:'<b>Retire run</b>',fn:function(){endRunConfirm(sv,false);}});
   ch.push({html:'<b>Camp ('+META.renown+')</b>',fn:function(){showCamp(showTitle);}});
+  ch.push({html:'<b>Stats</b>',fn:function(){showStats(showTitle);}});
   ch.push({html:'<b>Save transfer</b>',fn:function(){showTransfer();}});
   ch.push({html:'<b>How to play</b>',fn:function(){showGuide(showTitle);}});
   dialog('<h2>Dungeon Gambit</h2><p>Lead a party of heroes down three acts of a monster-filled dungeon. Recruit, level up, choose paths, stack effects, and place your party. Then watch the fight play out.</p>'+(best?'<p class="muted">'+best+'</p>':''),ch,true,true);}
+function showStats(back){var s=ST(),N=function(n){n=Math.round(n||0);return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e4?Math.round(n/1e3)+'k':String(n);},HN=function(k){return HEROES[k]?HEROES[k].n:k;},
+  tm=function(t){return Math.floor(t/60)+':'+('0'+(t%60)).slice(-2);},c=function(b,t){return '<div class="sc"><b>'+b+'</b><span>'+t+'</span></div>';},r=function(a,b){return '<div class="sr"><span>'+a+'</span><b>'+b+'</b></div>';};
+  var runs=META.runs||0,fights=s.fw+s.fl,h='<h2>Stats</h2><div class="sg">'+c(runs,'Runs started')+c((META.wins||0)+(runs?' · '+Math.round(100*(META.wins||0)/runs)+'%':''),'Runs cleared')+c(META.bestAct?'Act '+Math.min(3,META.bestAct)+(META.bestDeep?' · Deep '+META.bestDeep:''):'-','Furthest reached')+c(N(META.earned),'Renown earned')+'</div>';
+  h+='<h3>Bonus rounds</h3>';[['tdA','Dungeon'],['tdB','Forest'],['tdC','Snow']].forEach(function(m){var b=s.bn[m[0]];h+='<div class="sb"><div><b>'+m[1]+'</b><i>'+(b?'Best '+b.best+' kills':'Not played')+'</i></div>'+(b?'<small>Played '+b.n+' · average '+(b.tot/b.n).toFixed(1)+' · total '+b.tot+' kills</small>':'')+'</div>';});
+  h+='<h3>Combat</h3>'+r('Fights won / lost',s.fw+' / '+s.fl)+r('Bosses beaten',s.bw)+r('Total kills',N(s.kills))+r('Damage dealt',N(s.dmg))+r('Healing done',N(s.heal))+(s.bh?r('Biggest hit',N(s.bh.v)+' · '+HN(s.bh.h)):'')+(s.bf?r('Most damage, one fight',N(s.bf.v)+' · '+HN(s.bf.h)):'')+(s.bt?r('Fastest boss kill',tm(s.bt)):'');
+  var hk=Object.keys(s.hr),top=hk.sort(function(a,b){return s.hr[b].f-s.hr[a].f;})[0],bw=hk.filter(function(k){return s.hr[k].f>=10;}).sort(function(a,b){return s.hr[b].w/s.hr[b].f-s.hr[a].w/s.hr[a].f;})[0],ms=HERO_KEYS.slice().sort(function(a,b){return (((META.mast||{})[b]||{p:[]}).p.length)-(((META.mast||{})[a]||{p:[]}).p.length);})[0];
+  h+='<h3>Heroes</h3>'+(top?r('Most played',HN(top)+' · '+s.hr[top].f+' fights'):r('Most played','-'))+(bw?r('Best win rate (10+ fights)',HN(bw)+' · '+Math.round(100*s.hr[bw].w/s.hr[bw].f)+'%'):'')+(ms&&((META.mast||{})[ms]||{p:[]}).p.length?r('Most mastery',HN(ms)+' · '+META.mast[ms].p.length):'');
+  var rk=Object.keys(s.rel).sort(function(a,b){return s.rel[b]-s.rel[a];})[0];
+  h+='<h3>Relics &amp; gold</h3>'+(rk&&RELICS[rk]?r('Favorite relic',esc(RELICS[rk].n)+' · '+s.rel[rk]+' runs'):r('Favorite relic','-'))+r('Gold earned',N(s.gold))+(META.ascMax?r('Ascension unlocked',META.ascMax):'')+'<p class="muted">Counting started with this version; older runs are not included.</p>';
+  dialog(h,[{html:'<b>Back</b>',fn:back}],true,true);}
 function showTransfer(){
   dialog('<h2>Save transfer</h2><p>To move your game: on the OLD version tap Export, copy the text, then on the NEW version paste it into Import. Importing replaces what this version has saved.</p>',[],true,true);
   var d=document.querySelector('#ov .dlg'),ta=el('textarea');ta.style.cssText='width:100%;height:150px;font:14px monospace;box-sizing:border-box';ta.placeholder='Export text appears here. To import, paste it here.';
@@ -2238,7 +2263,7 @@ function boot(){
   showTitle();requestAnimationFrame(loop);connectCloud();
 }
 boot();
-window.__dd={startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
+window.__dd={showStats:showStats,ST:ST,endFight:endFight,startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
   startRun:startRun,undoBuy:undoBuy,nextFight:nextFight,enterPrep:enterPrep,startFight:startFight,skipFight:skipFight,endFight:endFight,buy:buy,reroll:reroll,sellHero:sellHero,
   closeDialog:closeDialog,showTitle:showTitle,genEncounter:genEncounter,placeHero:placeHero,afterChange:afterChange,boardCap:boardCap,onBoard:onBoard,inReserve:inReserve,
   showEventK:function(k,done){var e=EVENTS.filter(function(x){return x.k===k;})[0];var o=EVENTS;EVENTS=[e];showEvent(done);EVENTS=o;},TUNE:TUNE,HEROES:HEROES,PERKS:PERKS,ITEM_KEYS:ITEM_KEYS,RELIC_KEYS:RELIC_KEYS,HERO_KEYS:HERO_KEYS,genBoss:genBoss,ITEMS:ITEMS,RELICS:RELICS,heroUnit:heroUnit,mkSim:mkSim,simStep:simStep,foeUnits:foeUnits,themeCounts:themeCounts,foeThemes:foeThemes};
