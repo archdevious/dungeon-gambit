@@ -96,7 +96,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .slot .lv{position:absolute;left:4px;top:0;font-family:var(--body);font-size:17px;color:var(--gold)}
 .detail{min-height:200px}
 .mbuff{font-size:13px;color:var(--ok);margin:0 0 4px}.mxp{display:block;height:5px;background:var(--panel);box-shadow:0 0 0 1px var(--edge);margin-top:4px;max-width:160px}.mxp i{display:block;height:100%;background:var(--gold)}.cbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.lore{font-style:italic;color:var(--dim);font-size:14px;line-height:1.2;margin:6px 0 2px}
+.lore{font-style:italic;color:#4f3d27;font-size:14px;line-height:1.2;margin:6px 0 2px}
 .dhead{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:center}
 .dhead img{width:78px;height:78px;image-rendering:pixelated;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
 .dhead b{font-family:var(--px);font-size:11px;display:block;margin-bottom:6px}
@@ -421,7 +421,7 @@ var HEROES={
   ab:{n:'Cinder Ring',d:'Blasts the biggest cluster of foes: 120 damage and 3 burn in a ring.'},
   paths:[{k:'pyre',n:'Wildfire',d:'Cinder Ring applies 4 burn and also scorches every other burning foe anywhere for 100 damage.'},{k:'frostfire',n:'Hearthfire',cls2:'sup',d:'Cinder Ring also warms every ally: heals them 50 and they attack 15% faster for 4s.'},{k:'kindle',n:'Phoenix',d:'Once per fight, when Ember falls she rises with 40% health in a burst of flame (120 damage and 3 burn around her).'}]},
  ashling:{n:'Ashling',role:'Imp · assassin',spr:'imp',pw:1.24,th:['burn','bleed'],hp:410,atk:36,as:1.0,rng:1,arm:10,mana:60,dive:true,
-  ab:{n:'Hellstep',d:'Leaps to the weakest foe (or the boss, in boss fights) and strikes for 130 damage and 3 burn. Starts each fight behind enemy lines. Deals 25% more damage to bosses.'},
+  ab:{n:'Hellstep',d:'Leaps to the weakest foe (or the boss, in boss fights) and strikes for 130 damage and 3 burn. Starts each fight behind enemy lines.'},
   paths:[{k:'gutter',n:'Gutter',d:'If Hellstep kills its target, Ashling casts it again at once (up to 3 times in a row).'},{k:'smoke',n:'Hellfire',cls2:'cast',d:'Hellstep explodes where she lands: 80 damage and 3 burn to every foe next to the target.'},{k:'pick',n:'Pickpocket',d:'Steals 1 gold with each Hellstep (up to 2 per fight).',eco:1}]},
  moss:{n:'Mother Moss',role:'Druid · support',spr:'druid',pw:1.19,th:['poison','shield'],hp:460,atk:18,as:.7,rng:3,arm:10,mana:55,
   ab:{n:'Bloom',d:'Heals every ally for 110.'},
@@ -569,12 +569,12 @@ var RTIER={
  axe:{v:[40,60,80],t:'Attacks on foes below 30% health deal {v}% more damage.'},
  prism:{v:[5,7,9],t:'Your heroes deal {v}% more damage for each effect you have at 2/4 or better.'},
  tooth:{v:[1,2,3],t:'+{v} gold after every fight.'},
- ctank:{v:[15,25,35],t:'Tanks (Brandt, Ylva, Bramble, Pyra) have {v}% more health.'},
- cfight:{v:[10,15,20],t:'Fighters (Greymaw, Mire, Skarra) heal for {v}% of their attack damage.'},
- cass:{v:[15,25,35],t:'Assassins (Ashling, Thorne, Morrow) deal {v}% more damage.'},
- carch:{v:[15,25,35],t:'Marksmen (Vesk, Kestrel, Cogsworth) attack {v}% faster.'},
- ccast:{v:[20,35,50],t:'Casters (Nix, Ember, Sable, Grisk) gain mana {v}% faster.'},
- csup:{v:[15,25,35],t:'Support-class heroes (Hale, Moss, Oda, and Pyra on her Beacon path) have {v}% more ability power.'},
+ ctank:{v:[15,25,35],t:'Any hero with the Tank class has {v}% more health.'},
+ cfight:{v:[10,15,20],t:'Any hero with the Fighter class heals for {v}% of their attack damage.'},
+ cass:{v:[15,25,35],t:'Any hero with the Assassin class deals {v}% more damage.'},
+ carch:{v:[15,25,35],t:'Any hero with the Marksman class attacks {v}% faster.'},
+ ccast:{v:[20,35,50],t:'Any hero with the Caster class gains mana {v}% faster.'},
+ csup:{v:[15,25,35],t:'Any hero with the Support class has {v}% more ability power.'},
  mason:{v:[50,100,150],t:'Your walls, gate and treasure chests have {v}% more health.'},
  etome:{v:[1,2,3],t:'The first {v} ability casts of each caster and support (Nix, Ember, Sable, Grisk, Hale, Moss, Oda) in a fight happen twice.'},
  lonewolf:{v:[20,35,50],t:'For each empty board slot, your heroes get {v}% more health and damage.'}
@@ -885,7 +885,6 @@ function dmg(S,src,t,amt,kind){if(t.link)t=t.link; /* the 2-hex gate shares one 
   if(t.st.poison>0&&S.tl[at].poison>=2)m*=S.tl[at].poison===3?1.2:1.12;
   if(kind==='atk'){m*=100/(100+Math.max(0,t.arm+buffVal(t,'arm')));if(at===0)m*=1+rv('whet',S.relics)/100;if(at===0&&src&&src.rng>1)m*=1+rv('quiver',S.relics)/100;}
   if(t.team===0&&t.rng<=1)m*=1-rv('bell',S.relics)/100;
-  if(t.boss&&src&&src.key==='ashling'&&src.kind==='hero')m*=1.25;
   var d=Math.max(1,Math.round(amt*m)),left=d;
   if(t.shield>0){var a=Math.min(t.shield,left);t.shield-=a;left-=a;
     var rf=buffVal(t,'reflect');if(rf&&src&&src!==t&&src.hp>0&&kind!=='thorns'&&kind!=='dot')dmg(S,t,src,a*rf,'thorns');
@@ -1484,7 +1483,7 @@ var PAL={def:['#cfa48d','#d6c08f','#d8b09a','#c4987f','#e0cc9e','#c9b282','#a873
   shrine:['#c1c9c8','#ced5d3','#cad1d0','#aeb8b6','#d8dedc','#bcc5c3','#76847f','#82908b','#d3dad8','#e0e6e4']};
 var ROOMS={
  river:{n:'River Crossing',pal:'grass',m:['.......','.......','.......','wbwwwbw','wbwwwbw','.......','.......','.......'],note:'A wide river with two narrow bridges.'},
- ruins:{n:'Ruined Hall',pal:'def',m:['.......','.ff..h.','.......','.ff..hg','.hg..ff','.......','g....ff','.......'],note:'Toppled columns block the hall. A couple are cracked in half.'},
+ ruins:{n:'Ruined Hall',pal:'def',m:['.......','.ff..h.','.......','.ff..hg','.hg..ff','.......','g....ff','.......'],note:'Toppled columns block the hall.'},
  forest:{n:'Forest Clearing',pal:'grass',m:['.......','t.....t','.......','..tt...','.......','...tt..','t.....t','.......'],note:'A few trees, mostly open ground.'},
  chasm:{n:'Collapsed Bridge',pal:'rockf',m:['.......','.......','.......','vvbbbvv','vvbbbvv','.......','.......','.......'],note:'A chasm, crossed by one wide bridge.'},
  crypt:{n:'Crypt',pal:'crypt',m:['.......','cc...cc','.......','cc...cc','.......','cc...cc','.......','.......'],note:'Coffins line a long aisle.'},
@@ -1521,7 +1520,7 @@ function roomBlocked(k){var o={};roomInfo(k).obs.forEach(function(b){o[b.q+','+b
 var $=function(id){return document.getElementById(id);};
 function el(t,c,h){var e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-var TUNE={m:2.4,acts:[.8,2.3,4.05],step:.07,budget:1,main:1.18,r0:.76,r1:.05,boss:[2.0,2.7,4.2],gold:[5,0,0,5,5],bossGold:[10,15,20],td:{hp0:[610,980,1340],g1:.12,g2:.006,gap0:20,gapMin:9,gapDec:.35}};
+var TUNE={m:2.4,acts:[.8,2.3,4.05],step:.07,budget:1,main:1.18,r0:.76,r1:.05,boss:[2.0,2.7,4.2],gold:[5,0,0,5,5],bossGold:[10,15,20],td:{hp0:[610,980,1340],g1:.12,g2:.006,gap0:24,gapMin:11,gapDec:.35,sf:1.15}};
 var G=null,S=null,phase='menu',speed=1,view=null,fightAcc=0,lastT=0,sel=null,fightUnits=[],prepFoes=[],fx={proj:[],rings:[],txt:[],parts:[]},shakeUntil=0;
 try{speed=parseInt(localStorage.getItem('dd1_speed')||'1',10)||1;}catch(e){}
 var META={bestAct:0,bestStep:0,wins:0,runs:0};
@@ -1710,7 +1709,7 @@ function genBonus(){var k=['tdA','tdB','tdC'][Math.min(G.act,ACTS)-1]; /* easies
   return {diff:'bonus',td:true,name:'Bonus round',room:k,foes:[],obs:roomInfo(k).obs.slice(),reward:{gold:0}};}
 function startBonus(){G.enc=genBonus();G.opts=null;G.rr=0;enterPrep();toast('Bonus round: stop the foes. 1 gold for every kill.');}
 function tdParams(){var R=ROOMS[G.enc.room],a=Math.min(G.act,ACTS),T=TUNE.td;
-  return {paths:R.paths,spd:R.spd,hp0:T.hp0[a-1]*(R.hpm||1)*(G.act>ACTS?deepMult(G.act):1),g1:T.g1,g2:T.g2,gap0:T.gap0,gapMin:T.gapMin,gapDec:T.gapDec,maxLeaks:5};}
+  return {paths:R.paths,spd:Math.round(R.spd*(T.sf||1)),hp0:T.hp0[a-1]*(R.hpm||1)*(G.act>ACTS?deepMult(G.act):1),g1:T.g1,g2:T.g2,gap0:T.gap0,gapMin:T.gapMin,gapDec:T.gapDec,maxLeaks:5};}
 function encHTML(e){
   var units=e.foes.map(function(f){if(f.type==='boss')return '<img class="big" src="'+spriteURL(BOSSES[f.i].spr,4,'mon')+'" alt="">';
     if(f.type==='hero')return '<img src="'+spriteURL(HEROES[f.hid].spr,2,'foe')+'" alt="" title="'+esc(HEROES[f.hid].n)+'">';return '<img src="'+spriteURL(MONSTERS[f.key].spr,2,'mon')+'" alt="">';}).join('');
@@ -2109,8 +2108,8 @@ function drawUnit(x,u,now,isPrep){
       if(u.shield>0){var sw=Math.min(bw,Math.round(bw*u.shield/u.mhp));x.fillStyle='#e8f2ff';x.fillRect(bx+bw-sw,by,sw,2);}
       if(u.mmax){x.fillStyle='#6ff0ff';x.fillRect(bx,by+3,Math.round(bw*Math.min(1,u.mana/u.mmax)),1);}}
   }
-  if(u.kind==='hero'&&u.team===0&&u.lv>=MAXLV){var ST=['..#..','.###.','#####','.###.','.#.#.'];[[-1,0],[1,0],[0,-1],[0,1]].forEach(function(d){for(var sy=0;sy<5;sy++)for(var sx=0;sx<5;sx++)if(ST[sy].charAt(sx)==='#'){x.fillStyle='#120e18';x.fillRect(ox+1+sx+d[0],oy+3+sy+d[1],1,1);}});
-    for(var sy=0;sy<5;sy++)for(var sx=0;sx<5;sx++)if(ST[sy].charAt(sx)==='#'){x.fillStyle='#ffd24a';x.fillRect(ox+1+sx,oy+3+sy,1,1);}}
+  if(u.kind==='hero'&&u.team===0&&u.lv>=MAXLV){var ST=['...#...','..###..','#######','.#####.','..###..','.##.##.','.#...#.'],sx0=ox,sy0=oy+2;[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,1],[-1,1],[1,-1]].forEach(function(d){for(var sy=0;sy<7;sy++)for(var sx=0;sx<7;sx++)if(ST[sy].charAt(sx)==='#'){x.fillStyle='#120e18';x.fillRect(sx0+1+sx+d[0],sy0+sy+d[1],1,1);}});
+    for(var sy=0;sy<7;sy++)for(var sx=0;sx<7;sx++)if(ST[sy].charAt(sx)==='#'){x.fillStyle=sy<3?'#fff0a0':sy<5?'#ffd24a':'#e0a020';x.fillRect(sx0+1+sx,sy0+sy,1,1);}}
   else if(u.kind==='hero'&&u.team===0)for(var i=0;i<u.lv;i++){x.fillStyle='#120e18';x.fillRect(ox+1,oy+3+i*3,3,3);x.fillStyle='#e2b23f';x.fillRect(ox+2,oy+4+i*3,1,1);}
   if(!isPrep){var icons=[];['burn','frost','poison','bleed'].forEach(function(s){if(u.st[s]>=1)icons.push(s);});if(u.freeze>0)icons=['freeze'];else if(u.stun>0)icons=['taunt'];
     icons.slice(0,3).forEach(function(k,i){x.drawImage(iconCanvas(k),Math.round(px-icons.length*4.5+i*9),oy-(big?2:4));});}
