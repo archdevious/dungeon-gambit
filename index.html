@@ -236,6 +236,7 @@ button.btn,.market button,.hb{border-radius:6px}
     <div class="stats">
       <span class="stat" title="Health"><span id="hpTxt"></span><span class="hpbar"><i id="hpBar"></i></span></span>
       <span class="stat" title="Gold"><img id="goldIco" alt=""><span id="goldTxt" style="color:var(--gold)"></span></span>
+      <button class="mini" id="speedBtn" type="button" title="Fight speed: tap to change">1×</button>
       <button class="mini" id="menuBtn" type="button">MENU</button>
     </div>
   </header>
@@ -250,7 +251,6 @@ button.btn,.market button,.hb{border-radius:6px}
       <div class="foeline" id="foeLine"></div>
       <div class="bossbar pp" id="bossBar" hidden></div>
       <div class="boardwrap" id="boardWrap"><canvas id="board" width="202" height="204"></canvas><canvas id="fxText"></canvas></div>
-      <div class="ctrl" id="ctrl"></div>
     </section>
     <div class="rightcol">
       <aside class="side pp detail" id="detail"></aside>
@@ -2172,9 +2172,7 @@ function renderBossBar(){var b=$('bossBar');var u=null;
   if(phase==='fight'&&S)u=S.units.filter(function(x){return x.boss;})[0];else if(phase==='prep')u=prepFoes.filter(function(x){return x.boss;})[0];
   if(!u){b.hidden=true;return;}b.hidden=false;var hp=Math.max(0,Math.round(u.hp));
   b.innerHTML='<div class="bt"><span>'+esc(u.name.toUpperCase())+'</span><span>'+hp+' / '+Math.round(u.mhp)+'</span></div><div class="bb"><i style="width:'+(hp/u.mhp*100)+'%"></i></div>';}
-function renderCtrl(){var c=$('ctrl');c.innerHTML='';if(!G)return;
-  if(phase==='fight'){[1,2,4].forEach(function(n){var b=el('button','btn'+(speed===n?' on':''),n+'×');b.type='button';b.onclick=function(){speed=n;try{localStorage.setItem('dd1_speed',n);}catch(e){}renderCtrl();};c.appendChild(b);});}
-}
+function renderCtrl(){var b=$('speedBtn');if(b){b.textContent=speed+'×';b.hidden=!G;}}
 function renderStash(){var r=$('ibench');r.innerHTML='';if(!G)return;r.appendChild(el('span','lbl','ITEMS'));
   for(var i=0;i<Math.max(STASH,G.stash.length);i++){var k=G.stash[i],s=el('button','slot islot');s.type='button';
     if(k==='gate'){s.innerHTML='<img src="'+obsCanvas('gate').toDataURL()+'" alt="Gate" style="width:86%;height:auto;object-fit:contain">';s.title='Gate: tap to place it or sell it for '+GATE_SELL+' gold';(function(i){s.onclick=function(){benchGate(i);};})(i);}
@@ -2389,6 +2387,7 @@ function boot(){
   document.addEventListener('pointermove',onMove,{passive:false});document.addEventListener('pointerup',onUp);
   document.addEventListener('pointercancel',function(){if(drag&&drag.ghost)drag.ghost.remove();drag=null;});
   $('miniShow').onclick=function(){$('minibar').hidden=true;$('ov').hidden=false;};
+  $('speedBtn').onclick=function(){speed=speed===1?2:speed===2?4:1;try{localStorage.setItem('dd1_speed',speed);}catch(e){}renderCtrl();};
   $('menuBtn').onclick=function(){if(phase==='fight'){if(dlgOpen)return;dialog('<h2>Leave the fight?</h2><p>The fight is stopped and you go back to placing your party. Nothing is lost.</p>',[{html:'<b>Leave the fight</b>',fn:function(){if(S){S.over=true;S.endQueued=true;}enterPrep();showTitle();}},{html:'<b>Keep watching</b>',fn:function(){}}],true,true);return;}showTitle();};
   glyphURL('coin',2);iconURL('burn',2);showTitle();requestAnimationFrame(loop);connectCloud();
 }
