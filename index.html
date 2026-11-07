@@ -574,7 +574,7 @@ var RTIER={
  cass:{v:[15,25,35],t:'Assassins (Ashling, Thorne, Morrow) deal {v}% more damage.'},
  carch:{v:[15,25,35],t:'Marksmen (Vesk, Kestrel, Cogsworth) attack {v}% faster.'},
  ccast:{v:[20,35,50],t:'Casters (Nix, Ember, Sable, Grisk) gain mana {v}% faster.'},
- csup:{v:[15,25,35],t:'Supports (Hale, Moss, Oda) have {v}% more ability power.'},
+ csup:{v:[15,25,35],t:'Support-class heroes (Hale, Moss, Oda, and Pyra on her Beacon path) have {v}% more ability power.'},
  mason:{v:[50,100,150],t:'Your walls, gate and treasure chests have {v}% more health.'},
  etome:{v:[1,2,3],t:'The first {v} ability casts of each caster and support (Nix, Ember, Sable, Grisk, Hale, Moss, Oda) in a fight happen twice.'},
  lonewolf:{v:[20,35,50],t:'For each empty board slot, your heroes get {v}% more health and damage.'}
@@ -1459,6 +1459,7 @@ OBS_PAINT.logb={w:24,h:15,p:function(px){
   [[6,5],[7,6],[3,9]].forEach(function(c){px(c[0],c[1],'#5a564c');});
   [[19,10],[20,10],[19,11],[20,11],[21,11],[19,12],[20,12],[21,12],[22,12],[20,13],[21,13],[22,13]].forEach(function(c){px(c[0],c[1],c[1]<12?'#cfcabc':'#9d988a');});
   [[16,13],[17,12],[17,13]].forEach(function(c){px(c[0],c[1],'#b6b1a3');});}};
+OBS_PAINT.logr={w:24,h:15,p:function(px){OBS_PAINT.logb.p(function(x,y,c){px(23-x,y,c);});}};
 OBS_PAINT.cliff={w:22,h:24,p:function(px){var P=[[0,22],[4,10],[7,13],[12,1],[16,11],[18,8],[21,22]];
   function top(x){for(var i=0;i<P.length-1;i++){if(x>=P[i][0]&&x<=P[i+1][0]){var t=(x-P[i][0])/(P[i+1][0]-P[i][0]);return P[i][1]+(P[i+1][1]-P[i][1])*t;}}return 22;}
   for(var x=0;x<22;x++){var t0=Math.round(top(x));for(var y=t0;y<23;y++){var lit=x<12?1:0,c=lit?(y<t0+3?'#cdbfae':(y%5===0?'#8f8272':'#a8998a')):(y<t0+2?'#a89a89':(y%5===0?'#5e5348':'#76695b'));px(x,y,c);}}}};
@@ -1467,9 +1468,9 @@ OBS_PAINT.bars={w:22,h:22,p:function(px){
     if(y<4)c=y===0?'#c3c8cf':'#8a8f96';else if(x<3||x>18)c=x===0||x===19?'#b0b5bc':'#6c7178';else if(y>18)c=y===19?'#8a8f96':'#5a5f66';
     else if(x===5||x===9||x===13||x===17)c='#3a3a44';else if(x===6||x===10||x===14||x===18)c='#7a7a8a';else if(y===9||y===15)c='#2a2a32';
     if(c)px(x,y,c);}}};
-OBS_NAME.tree='Tree';OBS_NAME.pine='Tundra Pine';OBS_NAME.coffin='Coffin';OBS_NAME.log='Fallen Column';OBS_NAME.logb='Broken Column';OBS_NAME.cliff='Cliff';OBS_NAME.bars='Iron Bars';
+OBS_NAME.tree='Tree';OBS_NAME.pine='Tundra Pine';OBS_NAME.coffin='Coffin';OBS_NAME.log='Fallen Column';OBS_NAME.logb='Broken Column';OBS_NAME.logr='Broken Column';OBS_NAME.cliff='Cliff';OBS_NAME.bars='Iron Bars';
 var BREAK={crate:1,fence:1,bars:1},GROUNDK={water:1,chasm:1,lava:1,bog:1};
-var RCH={w:'water',v:'chasm',l:'lava',m:'bog',t:'tree',n:'pine',p:'pillar',f:'log',g:'logb',c:'coffin',r:'cliff',R:'rock',x:'crate',y:'fence',i:'bars'};
+var RCH={w:'water',v:'chasm',l:'lava',m:'bog',t:'tree',n:'pine',p:'pillar',f:'log',g:'logb',h:'logr',c:'coffin',r:'cliff',R:'rock',x:'crate',y:'fence',i:'bars'};
 var RDECO={b:'bridge',u:'rune',k:'cell',s:'dais'};
 var PAL={def:['#cfa48d','#d6c08f','#d8b09a','#c4987f','#e0cc9e','#c9b282','#a8735e','#a08654','#e0bca6','#e8d6ab'],
   snow:['#dbe5ee','#e9f0f6','#e6eef5','#cdd9e4','#f6fafd','#dbe5ee','#9fb2c4','#a9bccd','#f2f7fb','#ffffff'],
@@ -1483,7 +1484,7 @@ var PAL={def:['#cfa48d','#d6c08f','#d8b09a','#c4987f','#e0cc9e','#c9b282','#a873
   shrine:['#c1c9c8','#ced5d3','#cad1d0','#aeb8b6','#d8dedc','#bcc5c3','#76847f','#82908b','#d3dad8','#e0e6e4']};
 var ROOMS={
  river:{n:'River Crossing',pal:'grass',m:['.......','.......','.......','wbwwwbw','wbwwwbw','.......','.......','.......'],note:'A wide river with two narrow bridges.'},
- ruins:{n:'Ruined Hall',pal:'def',m:['.......','.ff..g.','.......','ff...ff','.ff.ff.','.......','g....ff','.......'],note:'Toppled columns block the hall. A couple are cracked in half.'},
+ ruins:{n:'Ruined Hall',pal:'def',m:['.......','.ff..h.','.......','.ff..hg','.hg..ff','.......','g....ff','.......'],note:'Toppled columns block the hall. A couple are cracked in half.'},
  forest:{n:'Forest Clearing',pal:'grass',m:['.......','t.....t','.......','..tt...','.......','...tt..','t.....t','.......'],note:'A few trees, mostly open ground.'},
  chasm:{n:'Collapsed Bridge',pal:'rockf',m:['.......','.......','.......','vvbbbvv','vvbbbvv','.......','.......','.......'],note:'A chasm, crossed by one wide bridge.'},
  crypt:{n:'Crypt',pal:'crypt',m:['.......','cc...cc','.......','cc...cc','.......','cc...cc','.......','.......'],note:'Coffins line a long aisle.'},
@@ -1856,7 +1857,7 @@ function damageReport(){
     var segs='',labs='',tw=Math.round(tot/mx*1000)/1000,cum=0;
     parts.forEach(function(pt){var x=pt[0],val=pt[1],w=val/tot*100;
       segs+='<i title="'+x[1].toLowerCase()+' '+R(val)+'" style="width:'+w+'%;background:'+x[2]+'"></i>';
-      labs+='<em data-p="'+Math.round(cum*10)/10+'" style="color:'+x[2]+';left:'+Math.round(cum*10)/10+'%">'+EIC(x[0])+R(val)+'</em>';cum+=w;});
+      var mid=Math.round((cum+w/2)*10)/10;labs+='<em data-p="'+mid+'" style="color:'+x[2]+';left:'+mid+'%">'+EIC(x[0])+R(val)+'</em>';cum+=w;});
     return '<div class="dmgrow"><span>'+esc(u.name)+'</span><span class="dmgbar"><span class="dmglabs" style="width:calc((100% - 112px)*'+tw+');height:18px">'+labs+'</span><span class="dmgline"><span class="dmgtrack" style="width:calc((100% - 112px)*'+tw+')"><span class="dmgseg">'+segs+'</span></span><b class="dmgtot">'+v+(hh?' · +'+hh:'')+'</b></span></span></div>'
       +'<div class="dmgsub">took '+R(u.taken||0)+(u.hp<=0?' · fell':'')+'</div>';}).join('');
   return h;}
@@ -1871,8 +1872,8 @@ function dialog(html,choices,modal,single,mini){
   d.appendChild(row);o.appendChild(d);o.hidden=false;o.scrollTop=0;dlgOpen=true;fixLabs();
 }
 /* recap labels: each number sits over its own colored segment; ones that would collide drop to the next row (measured, so it works at any screen width) */
-function fixLabs(){var cs=document.querySelectorAll('.dmglabs');for(var i=0;i<cs.length;i++){var c=cs[i],W=c.clientWidth,ends=[-99,-99,-99,-99],nrow=1,ms=c.children;
-  for(var j=0;j<ms.length;j++){var m=ms[j],l=W*(+m.getAttribute('data-p'))/100,w=m.offsetWidth,row=0;while(row<3&&l<ends[row])row++;ends[row]=l+w+4;m.style.top=row*18+'px';if(row+1>nrow)nrow=row+1;}
+function fixLabs(){var wide=window.innerWidth>=700,cs=document.querySelectorAll('.dmglabs');for(var i=0;i<cs.length;i++){var c=cs[i],W=c.clientWidth,ends=[-99,-99,-99,-99],nrow=1,ms=c.children;
+  for(var j=0;j<ms.length;j++){var m=ms[j],w=m.offsetWidth,l=Math.max(0,Math.min(wide?1e9:W-w,W*(+m.getAttribute('data-p'))/100-w/2)),row=0;if(wide)l=Math.max(l,ends[0]);else while(row<3&&l<ends[row])row++;ends[row]=l+w+4;m.style.left=l+'px';m.style.top=row*18+'px';if(row+1>nrow)nrow=row+1;}
   c.style.height=nrow*18+'px';}}
 function closeDialog(){$('ov').hidden=true;$('ov').innerHTML='';$('minibar').hidden=true;dlgOpen=false;}
 /* a rarer copy of an item a hero already carries goes straight onto that hero; the old one moves to the bench (or is sold if the bench is full) */
@@ -1888,11 +1889,12 @@ function makeRoom(h,done,benchFree){if(h.items.length<itemCap(h))return done();v
   dialog('<h2>'+esc(d.n)+' is carrying '+itemCap(h)+' items</h2><p class="muted">Pick one to '+(room>0?'move to the item bench':'sell (your bench is full)')+'.</p>',
     h.items.map(function(k,i){var it=itemDef(k);return {cls:'tier'+it.t,html:'<div class="row"><img src="'+glyphURL(it.g,4,it.t)+'" alt=""></div><b>'+esc(it.n)+'</b><span>'+esc(it.d)+'</span>'+(room>0?'':'<small>Sell for '+itemSellValue(k)+' gold</small>'),
       fn:function(){var old=h.items.splice(i,1)[0];if(room>0)G.stash.push(old);else G.gold+=itemSellValue(old);done();}};}),true,false,'Making room on '+d.n);}
+function hcl(h){return heroClasses(h.hid,h.path).map(function(c){return CLS_LABEL[c];}).join('/').replace(/^./,function(c){return c.toUpperCase();});}
 function chooseHeroFor(title,desc,heroes,fn,cancel,toStash,sell,benchFree){var ik=CHI_ITEM;CHI_ITEM=null;
   var ch=heroes.map(function(h){var d=HEROES[h.hid],dup=ik?sameItem(h,ik):null;
-    if(dup)return {html:'<div class="row"><img src="'+spriteURL(d.spr,2)+'" alt=""></div><b>'+esc(d.n)+'</b><small>Level '+h.lv+' · already has '+esc(itemDef(dup).n)+' · swaps it out (one of each item)</small>'+heroThemeChips(h),
+    if(dup)return {html:'<div class="row"><img src="'+spriteURL(d.spr,2)+'" alt=""></div><b>'+esc(d.n)+'</b><small>Level '+h.lv+' · '+hcl(h)+' · already has '+esc(itemDef(dup).n)+' · swaps it out (one of each item)</small>'+heroThemeChips(h),
       fn:function(){var room=STASH-G.stash.length+(benchFree||0);h.items.splice(h.items.indexOf(dup),1);if(room>0)G.stash.push(dup);else{G.gold+=itemSellValue(dup);toast('Bench full, so '+itemDef(dup).n+' sold for '+itemSellValue(dup)+' gold');}fn(h);}};
-    return {html:'<div class="row"><img src="'+spriteURL(d.spr,2)+'" alt=""></div><b>'+esc(d.n)+'</b><small>Level '+h.lv+' · '+h.items.length+'/'+itemCap(h)+' items'+(h.items.length>=itemCap(h)?' · swap one out':'')+'</small>'+heroThemeChips(h),fn:function(){makeRoom(h,function(){fn(h);},benchFree);}};});
+    return {html:'<div class="row"><img src="'+spriteURL(d.spr,2)+'" alt=""></div><b>'+esc(d.n)+'</b><small>Level '+h.lv+' · '+hcl(h)+' · '+h.items.length+'/'+itemCap(h)+' items'+(h.items.length>=itemCap(h)?' · swap one out':'')+'</small>'+heroThemeChips(h),fn:function(){makeRoom(h,function(){fn(h);},benchFree);}};});
   if(toStash&&G.stash.length<STASH)ch.push({html:'<div class="row"><img src="'+glyphURL('mail',3)+'" alt="" style="opacity:.5"></div><b>Item bench</b><small>Keep it for later ('+G.stash.length+'/'+STASH+' slots used). Items on the bench do nothing until a hero carries them.</small>',fn:function(){toStash();}});
   if(sell)ch.push({html:'<div class="row"><img src="'+glyphURL('coin',3)+'" alt=""></div><b>Sell for '+sell.v+' gold</b><small>75% of its price.</small>',cls:'sellc',fn:function(){sell.fn();}});
   dialog('<h2>'+esc(title)+'</h2><p class="muted">'+esc(desc)+'</p>',ch,!cancel,false,title);
