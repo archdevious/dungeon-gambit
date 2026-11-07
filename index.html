@@ -1499,7 +1499,7 @@ var ROOMS={
 var REG_ROOMS=['river','ruins','forest','chasm','crypt','snow','swamp','arena','canyon','mage','barricade','prison'],BOSS_ROOMS=['shrine','lava','throne'];
 /* ---------- bonus rounds: tower defense. Foes walk a track to the exit; heroes stand still on open ground. ---------- */
 RDECO.z='path';
-ROOMS.tdA={n:'Bonus: Dungeon',pal:'crypt',td:1,trk:'#7d746c',spd:9,m:["zzzzzzp", ".....z.", "zzz...z", "zpzp.pz", "z.zzzzz", "zp...p.", ".zzzzzz", "p.....p"],paths:[[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[5,1],[6,2],[6,3],[6,4],[5,4],[4,4],[3,4],[2,4],[2,3],[2,2],[1,2],[0,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6]]],note:'A winding dungeon corridor. Foes walk a little faster here.'};
+ROOMS.tdA={n:'Bonus: Dungeon',pal:'crypt',td:1,trk:'#7d746c',spd:12,m:["zzzzzzp", ".....z.", "zzz...z", "zpzp.pz", "z.zzzzz", "zp...p.", ".zzzzzz", "p.....p"],paths:[[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[5,1],[6,2],[6,3],[6,4],[5,4],[4,4],[3,4],[2,4],[2,3],[2,2],[1,2],[0,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6]]],note:'A winding dungeon corridor.'};
 ROOMS.tdB={n:'Bonus: Forest',pal:'grass',td:1,trk:'#9a7a50',spd:12,m:["zzzz..t", "t..z..t", ".zzzzz.", "z....z.", "zttt..z", "z...t.z", ".zzzzzz", "tt.z.t."],paths:[[[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[2,2],[1,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[3,7]],[[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[4,2],[5,2],[5,3],[6,4],[6,5],[6,6],[5,6],[4,6],[3,6],[3,7]]],note:'The path splits, then comes back together.'};
 ROOMS.tdC={n:'Bonus: Snowfield',pal:'snow',td:1,trk:'#8d98a8',spd:12,m:["zzz..nz", "..zn.nz", "zzz.zzz", "z...z..", ".zz.z.n", "n.zz.n.", ".n.z...", "nn.zzzz"],paths:[[[0,0],[1,0],[2,0],[2,1],[2,2],[1,2],[0,2],[0,3],[1,4],[2,4],[2,5],[3,6],[3,7],[4,7],[5,7],[6,7]],[[6,0],[6,1],[6,2],[5,2],[4,2],[4,3],[4,4],[3,5],[2,5],[3,6],[3,7],[4,7],[5,7],[6,7]]],note:'Two roads from the north join near the end.'};
 var TD_ROOMS=['tdA','tdB','tdC'];
@@ -1605,7 +1605,7 @@ function placeFoes(foes,rk){var used={},blk=rk?roomBlocked(rk):{},info=rk?roomIn
 function genBoss(act){var i=(act-1)%ACTS,sc=null,asc2=null;
   if(act>ACTS){var top=BOSSES[ACTS-1],B=BOSSES[i],k=TUNE.boss[ACTS-1]*deepMult(act);sc=k*top.hp/B.hp;asc2=k*top.atk/B.atk;} /* endless: earlier bosses return at deep strength */
   var bf=[{type:'boss',i:i,q:3,r:1,sc:sc,asc:asc2}];
-  var brk=BOSS_ROOMS[(act-1)%BOSS_ROOMS.length];return {obs:roomInfo(brk).obs.slice(),room:brk,diff:'boss',name:BOSSES[i].n,foes:bf,reward:{gold:0}};}
+  var brk=BOSS_ROOMS[(act-1)%BOSS_ROOMS.length];return {obs:roomInfo(brk).obs.slice(),room:brk,diff:'boss',name:BOSSES[i].n,foes:bf,reward:{gold:act>ACTS?TUNE.bossGold[ACTS-1]-(asc(3)?4:0):0}};}
 function foeUnits(enc){return ascFoes(enc.foes.map(function(f){
   if(f.type==='boss'){var b=bossUnit(f.i,f.sc||TUNE.boss[f.i],f.asc||null);b.q=f.q;b.r=f.r;return b;}
   if(f.type==='hero')return heroUnit({hid:f.hid,lv:f.lv,perks:[],path:f.path,items:[],uid:-1},1,f.q,f.r,[]);
@@ -1703,15 +1703,16 @@ function nextFight(){
   enterPrep();
   if(G.step===STEPS)toast((G.act>ACTS?'Deep ':'Act ')+G.act+' boss: '+G.enc.name);
 }
-function genBonus(){var seen=G.tdSeen||[],left=TD_ROOMS.filter(function(k){return seen.indexOf(k)<0;});if(!left.length){left=TD_ROOMS.slice();seen=[];}
-  var k=left[Math.floor(rnd()*left.length)];G.tdSeen=seen.concat([k]);return {diff:'bonus',td:true,name:'Bonus round',room:k,foes:[],obs:roomInfo(k).obs.slice(),reward:{gold:0}};}
+function genBonus(){var seen=G.tdSeen||[],k;if(G.act===1)seen=[];
+  if(G.act===1)k='tdA';else{var left=TD_ROOMS.filter(function(x){return x!=='tdA'&&seen.indexOf(x)<0;});if(!left.length)left=['tdB','tdC'];k=left[Math.floor(rnd()*left.length)];}
+  G.tdSeen=seen.concat([k]);return {diff:'bonus',td:true,name:'Bonus round',room:k,foes:[],obs:roomInfo(k).obs.slice(),reward:{gold:0}};}
 function startBonus(){G.enc=genBonus();G.opts=null;G.rr=0;enterPrep();toast('Bonus round: stop the foes. 1 gold for every kill.');}
 function tdParams(){var R=ROOMS[G.enc.room],a=Math.min(G.act,ACTS),T=TUNE.td;
   return {paths:R.paths,spd:R.spd,hp0:T.hp0[a-1]*(G.act>ACTS?deepMult(G.act):1),g1:T.g1,g2:T.g2,gap0:T.gap0,gapMin:T.gapMin,gapDec:T.gapDec,maxLeaks:5};}
 function encHTML(e){
   var units=e.foes.map(function(f){if(f.type==='boss')return '<img class="big" src="'+spriteURL(BOSSES[f.i].spr,4,'mon')+'" alt="">';
     if(f.type==='hero')return '<img src="'+spriteURL(HEROES[f.hid].spr,2,'foe')+'" alt="" title="'+esc(HEROES[f.hid].n)+'">';return '<img src="'+spriteURL(MONSTERS[f.key].spr,2,'mon')+'" alt="">';}).join('');
-  var rw=[e.diff==='boss'?'<li>A bonus round follows</li>':'<li>'+e.reward.gold+' gold</li>'];if(e.reward.item)rw.push('<li>An item of your choice</li>');if(e.reward.relic)rw.push('<li>A relic of your choice</li>');
+  var rw=[e.diff==='boss'&&!e.reward.gold?'<li>A bonus round follows</li>':'<li>'+e.reward.gold+' gold</li>'];if(e.reward.item)rw.push('<li>An item of your choice</li>');if(e.reward.relic)rw.push('<li>A relic of your choice</li>');
   var dl={easy:'EASY',hard:'HARD',deadly:'DEADLY',boss:'BOSS'}[e.diff],dc={easy:'#5bbf4a',hard:'#ffb347',deadly:'#e0574b',boss:'#e2b23f'}[e.diff];
   return '<div class="row">'+units+'</div><b>'+esc(e.name)+'</b><span class="diff" style="color:'+dc+'">'+dl+'</span>'+(e.diff==='boss'?'<small>'+esc(BOSSES[e.foes[0].i].d)+'</small>':'')+'<ul>'+rw.join('')+'</ul>';
 }
@@ -1802,8 +1803,8 @@ function advance(win){
   var boss=G.enc.diff==='boss',wasBonus=!!G.enc.td;if(wasBonus){boss=true;win=true;}
   if(boss&&!win){restock();nextFight();return;} /* face the boss again, with a fresh market */
   if(boss&&win){
+    if(!wasBonus&&!G.endless&&G.act<=ACTS)return startBonus(); /* beating one of the 3 act bosses leads to a bonus round (none in the Deep) */
     if(G.act===ACTS&&!G.endless)return victory();
-    if(!wasBonus)return startBonus(); /* a boss win leads to a bonus round, then the next act */
     G.act++;G.step=1;var actHeal=20;G.hp=Math.min(maxHp(),G.hp+actHeal);toast((G.act>ACTS?'Deep '+G.act+'. Your party rests: +'+actHeal+' health.':'Act '+G.act+'. Your party rests: +'+actHeal+' health, and room for one more hero on the board.'));
     if(G.endless&&G.act>META.bestDeep){META.bestDeep=G.act;saveMeta();}
   }else G.step++;
@@ -1952,7 +1953,7 @@ function showGuide(back){
    '<div><b>Heroes</b><span>A new hero costs 4 gold. Buy one you already have to level them up (max 6): 4, 5, 5, 6, then 6 gold. At level 3 they pick a path.</span></div>'+
    '<div><b>Items</b><span>Each hero carries up to 3 items, and only one of each kind. Finish a hero\'s story (mastery 3) to buy them a 4th slot at the Camp.</span></div>'+
    '<div><b>Effects</b><span>2, 4 and 6 heroes with the same effect unlock stronger bonuses.</span></div>'+
-   '<div><b>Gold</b><span>Every fight pays 5 gold, won or lost. Rewards come in a fixed order each act: gold after fights 1 and 4, an item after 2 and 5, a relic after 3 and 6, and a relic for beating the boss. If you are hurt you can rest instead of taking the reward. Beating a boss leads to a bonus round: foes walk a track and every kill pays 1 gold. A lost boss fight gives no reward. UNDO refunds a purchase before the fight; selling gives back 75%.</span></div>'+
+   '<div><b>Gold</b><span>Every fight pays 5 gold, won or lost. Rewards come in a fixed order each act: gold after fights 1 and 4, an item after 2 and 5, a relic after 3 and 6, and a relic for beating the boss. If you are hurt you can rest instead of taking the reward. Beating each of the 3 act bosses leads to a bonus round: foes walk a track and every kill pays 1 gold. A lost boss fight gives no reward. UNDO refunds a purchase before the fight; selling gives back 75%.</span></div>'+
    '<div><b>Obstacles</b><span>Rocks and pillars block the way. Crates, fences and your own walls can be smashed. Buy walls in the market, then tap WALLS and tap your side of the board to build them.</span></div>'+
    '<div><b>Health</b><span>Losing costs health. At 0 the run ends.</span></div>'+
    '<div><b>Camp</b><span>Runs earn Renown for upgrades, unlocks and harder Ascension levels.</span></div>'+
