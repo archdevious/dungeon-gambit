@@ -154,7 +154,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .choice small{color:var(--muted);font-size:15px}
 .choice .big{width:96px!important;height:96px!important}
 .dmgrow{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center;font-size:15px}
-.dmgrow{margin-top:14px}.dmgrow i{height:8px;display:block}.dmgbar{display:block;margin-top:4px}.dmglabs{display:flex;flex-wrap:wrap;gap:2px 12px;margin-bottom:3px}.dmglabs em{font-style:normal;font-size:14px;line-height:18px;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;font-weight:700}.dmglabs em img,.eic{width:16px;height:16px;image-rendering:pixelated;flex:0 0 auto}.eic{vertical-align:-3px;margin-right:4px}.dmgseg{display:flex;gap:1px;height:8px}.dmgline{display:flex;align-items:flex-end;gap:10px}.dmgtrack{display:block;flex:0 0 auto;min-width:0}.dmgtot{font-weight:400;color:var(--muted);white-space:nowrap;line-height:8px;font-size:15px}
+.dmgrow{margin-top:14px}.dmgrow i{height:8px;display:block}.dmgbar{display:block;margin-top:4px}.dmglabs{display:block;position:relative;margin-bottom:3px}.dmglabs em{position:absolute;font-style:normal;font-size:14px;line-height:18px;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;font-weight:700}.dmglabs em img,.eic{width:16px;height:16px;image-rendering:pixelated;flex:0 0 auto}.eic{vertical-align:-3px;margin-right:4px}.dmgseg{display:flex;gap:1px;height:8px}.dmgline{display:flex;align-items:flex-end;gap:10px}.dmgtrack{display:block;flex:0 0 auto;min-width:0}.dmgtot{font-weight:400;color:var(--muted);white-space:nowrap;line-height:8px;font-size:15px}
 
 .dmgsub{font-size:12px;color:var(--muted);margin:-4px 0 2px 0;padding-left:2px}
 .sgrid{display:grid;grid-template-columns:130px 1fr 1fr;gap:8px;align-items:center;font-size:15px}
@@ -1853,11 +1853,11 @@ function damageReport(){
   var mx=Math.max(1,U[0]?dt(U[0])+U[0].healed:1);
   h+='<div class="h">WHO DID THE WORK</div>'+U.map(function(u){var v=R(dt(u)),hh=R(u.healed),dk=u.dk||{};
     var parts=[],tot=0;SRC.concat([['heal','Healing','#3fb8a8']]).forEach(function(x){var val=x[0]==='heal'?hh:(dk[x[0]]||0);if(val<1)return;parts.push([x,val]);tot+=val;});
-    var segs='',labs='',tw=Math.round(tot/mx*1000)/1000;
+    var segs='',labs='',tw=Math.round(tot/mx*1000)/1000,cum=0;
     parts.forEach(function(pt){var x=pt[0],val=pt[1],w=val/tot*100;
       segs+='<i title="'+x[1].toLowerCase()+' '+R(val)+'" style="width:'+w+'%;background:'+x[2]+'"></i>';
-      labs+='<em style="color:'+x[2]+'">'+EIC(x[0])+R(val)+'</em>';});
-    return '<div class="dmgrow"><span>'+esc(u.name)+'</span><span class="dmgbar"><span class="dmglabs">'+labs+'</span><span class="dmgline"><span class="dmgtrack" style="width:calc((100% - 112px)*'+tw+')"><span class="dmgseg">'+segs+'</span></span><b class="dmgtot">'+v+(hh?' · +'+hh:'')+'</b></span></span></div>'
+      labs+='<em data-p="'+Math.round(cum*10)/10+'" style="color:'+x[2]+';left:'+Math.round(cum*10)/10+'%">'+EIC(x[0])+R(val)+'</em>';cum+=w;});
+    return '<div class="dmgrow"><span>'+esc(u.name)+'</span><span class="dmgbar"><span class="dmglabs" style="width:calc((100% - 112px)*'+tw+');height:18px">'+labs+'</span><span class="dmgline"><span class="dmgtrack" style="width:calc((100% - 112px)*'+tw+')"><span class="dmgseg">'+segs+'</span></span><b class="dmgtot">'+v+(hh?' · +'+hh:'')+'</b></span></span></div>'
       +'<div class="dmgsub">took '+R(u.taken||0)+(u.hp<=0?' · fell':'')+'</div>';}).join('');
   return h;}
 /* ---------- dialogs ---------- */
@@ -1868,8 +1868,12 @@ function dialog(html,choices,modal,single,mini){
   var row=el('div',single?'':'choices');if(single){row.style.display='flex';row.style.flexWrap='wrap';}
   choices.forEach(function(c){var b=el('button',single?'btn go':'choice '+(c.cls||''),c.html);b.type='button';b.onclick=function(){closeDialog();c.fn();};row.appendChild(b);});
   if(!modal){var x=el('button','btn','Cancel');x.type='button';x.onclick=closeDialog;row.appendChild(x);}
-  d.appendChild(row);o.appendChild(d);o.hidden=false;o.scrollTop=0;dlgOpen=true;
+  d.appendChild(row);o.appendChild(d);o.hidden=false;o.scrollTop=0;dlgOpen=true;fixLabs();
 }
+/* recap labels: each number sits over its own colored segment; ones that would collide drop to the next row (measured, so it works at any screen width) */
+function fixLabs(){var cs=document.querySelectorAll('.dmglabs');for(var i=0;i<cs.length;i++){var c=cs[i],W=c.clientWidth,ends=[-99,-99,-99,-99],nrow=1,ms=c.children;
+  for(var j=0;j<ms.length;j++){var m=ms[j],l=W*(+m.getAttribute('data-p'))/100,w=m.offsetWidth,row=0;while(row<3&&l<ends[row])row++;ends[row]=l+w+4;m.style.top=row*18+'px';if(row+1>nrow)nrow=row+1;}
+  c.style.height=nrow*18+'px';}}
 function closeDialog(){$('ov').hidden=true;$('ov').innerHTML='';$('minibar').hidden=true;dlgOpen=false;}
 /* a rarer copy of an item a hero already carries goes straight onto that hero; the old one moves to the bench (or is sold if the bench is full) */
 function autoUpgrade(k){var b=itemBase(k),t=itemTier(k),best=null;
