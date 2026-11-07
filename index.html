@@ -824,7 +824,7 @@ function bossUnit(i,scale,aScale){var b=BOSSES[i];aScale=aScale||scale;
 /* ---- simulation ---- */
 function mkSim(units,ctx){var OB={};(ctx.obs||[]).forEach(function(o){OB[o.q+','+o.r]=1;});
   var S={tick:0,units:units,ev:[],gold:0,over:false,winner:null,ctx:ctx,relics:ctx.relics||[],boss:units.some(function(u){return u.boss;}),phoenix:false,
-    tl:[{},{}],stt:[{dm:{},ap:{},kills:0,frz:0,spread:0,blk:0},{dm:{},ap:{},kills:0,frz:0,spread:0,blk:0}],dt:''};S.obs=OB;
+    tl:[{},{}],stt:[{dm:{},ap:{},kills:0,frz:0,spread:0,blk:0},{dm:{},ap:{},kills:0,frz:0,spread:0,blk:0}],dt:''};S.obs=OB;if(ctx.td)S.td=tdState(ctx.td);
   var mine=units.filter(function(u){return u.team===0;}),theirs=units.filter(function(u){return u.team===1&&u.kind==='hero';});
   S.tl[0]=lvlMap(ctx.themes0||{});S.tl[1]=lvlMap(ctx.themes1||{});
   S.prism=0;if((ctx.relics||[]).indexOf('prism')>=0)THEME_KEYS.forEach(function(t){if(S.tl[0][t]>=1)S.prism++;});
@@ -955,7 +955,7 @@ function startNear(S,u,rad){return alive(S,u.team).filter(function(a){return a!=
 function within(S,c,team,rad){return alive(S,team).filter(function(e){return hdist(c,e)<=rad;});}
 function freeAdj(S,c,u){var n=hexNeighbors(c.q,c.r).filter(function(h){return !occupied(S,h.q,h.r,u);});n.sort(function(a,b){return hdist(a,u)-hdist(b,u);});return n[0]||null;}
 function caged(u){return !!(u.cageBar&&u.cageBar.hp>0);}
-function blinkTo(S,u,c){if(caged(u))return;var h=freeAdj(S,c,u);if(h){u.q=h.q;u.r=h.r;ev(S,{k:'blink',a:u.id});}}
+function blinkTo(S,u,c){if(caged(u)||S.td)return;var h=freeAdj(S,c,u);if(h){u.q=h.q;u.r=h.r;ev(S,{k:'blink',a:u.id});}}
 function applyOnHit(S,u,t){u.onhit.forEach(function(k){if(k==='poison2')addStatus(S,u,t,'poison',2);else addStatus(S,u,t,k,1);});if(buffVal(u,'frenzy'))addStatus(S,u,t,'bleed',1);if(buffVal(u,'fireatk'))addStatus(S,u,t,'burn',buffVal(u,'fireatk'));}
 function attack(S,u,t){
   var a=u.atk*(1+buffVal(u,'atkm'));if(u.ambush){u.ambush=false;a*=3;u.buffs=u.buffs.filter(function(b){return !b.hide;});}
@@ -1076,15 +1076,53 @@ function later(S,n,fn){(S.later=S.later||[]).push({t:S.tick+n,fn:fn});}
 function atkSpeed(u){var m=1+buffVal(u,'asm');if(u.key==='greymaw'&&u.path==='hide'&&u.hp<u.mhp*.6)m+=.6;if(u.key==='skarra'&&u.path==='berserk')m+=.8*(1-u.hp/u.mhp);
   return u.as*m*(buffVal(u,'ccimm')?1:1-.08*Math.min(5,u.st.frost));}
 /* push e one hex away from u / drag e next to u, if there is room */
-function knockback(S,u,e){if(e.boss||e.kind==='wall'||caged(e))return;var h=hexNeighbors(e.q,e.r).filter(function(n){return !occupied(S,n.q,n.r,e)&&hdist(n,u)>hdist(e,u);})[0];if(h){e.q=h.q;e.r=h.r;}}
-function pull(S,u,e){if(e.boss||e.kind==='wall')return;var h=hexNeighbors(u.q,u.r).filter(function(n){return !occupied(S,n.q,n.r,e);}).sort(function(a,b){return hdist(a,e)-hdist(b,e);})[0];if(h){e.q=h.q;e.r=h.r;ev(S,{k:'blink',a:e.id});}}
+function knockback(S,u,e){if(S.td||e.boss||e.kind==='wall'||caged(e))return;var h=hexNeighbors(e.q,e.r).filter(function(n){return !occupied(S,n.q,n.r,e)&&hdist(n,u)>hdist(e,u);})[0];if(h){e.q=h.q;e.r=h.r;}}
+function pull(S,u,e){if(S.td||e.boss||e.kind==='wall')return;var h=hexNeighbors(u.q,u.r).filter(function(n){return !occupied(S,n.q,n.r,e);}).sort(function(a,b){return hdist(a,e)-hdist(b,e);})[0];if(h){e.q=h.q;e.r=h.r;ev(S,{k:'blink',a:e.id});}}
 var BURN_DMG=4.5,POISON_DMG=4.5,BLEED_DMG=4.5;
 /* bleed: every attack, spell or step the victim takes tears the wound: damage per stack, then one stack closes */
 function bleedAct(S,u){if(!u||u.hp<=0||!(u.st.bleed>0))return;var bd=u.st.bleed*BLEED_DMG*dotMult(S,1-u.team,'bleed');S.dt='bleed';dmg(S,null,u,bd,'dot');
   if(u.team===1&&rv('chalice',S.relics)){var w=mostWounded(alive(S,0));if(w)heal(S,null,w,bd*rv('chalice',S.relics)/100);}u.st.bleed--;}
+/* ---- bonus round: tower defense ----
+   Foes walk a track to the exit and never fight back. Heroes stand still and hit whatever walks into range. Each kill pays 1 gold;
+   the round ends when 5 foes have reached the exit. Foes get tougher the longer it lasts. */
+var TD_PACE={goblin:1,slime:1.3,bat:.75,spider:.9,skeleton:1.15,cultist:1.05},TD_HPF={goblin:1,slime:1.25,bat:.7,spider:.9,skeleton:1.3,cultist:.85};
+function tdState(c){return {paths:c.paths,spd:c.spd,hp0:c.hp0,g1:c.g1,g2:c.g2,gap0:c.gap0,gapMin:c.gapMin,gapDec:c.gapDec,maxLeaks:c.maxLeaks||5,n:0,next:8,leaks:0,kills:0,maxTick:c.maxTick||5000};}
+function tdHP(T,n){return T.hp0*(1+T.g1*n+T.g2*n*n);}
+function tdSpawn(S){var T=S.td,n=T.n++,path=T.paths[n%T.paths.length],pool=['goblin','slime','bat'];if(n>=5)pool=pool.concat(['spider','skeleton']);if(n>=11)pool.push('cultist');
+  var k=pool[Math.floor(rnd()*pool.length)],u=monsterUnit(k,1,path[0][0],path[0][1]);
+  u.hp=u.mhp=tdHP(T,n)*TD_HPF[k];u.atk=0;u.mmax=0;u.mana=0;u.onhit=[];u.td=1;u.pi=0;u.pth=path;u.tdc=0;u.tdn=Math.max(3,Math.round(T.spd*TD_PACE[k]));u.cd=999;
+  S.units.push(u);}
+function tdStep(S){var T=S.td,us,i,u,tg,foes;
+  if(S.tick>=T.next){tdSpawn(S);T.next=S.tick+Math.max(T.gapMin,Math.round(T.gap0-T.gapDec*T.n));}
+  us=alive(S);
+  for(i=0;i<us.length;i++){u=us[i];if(u.hp<=0||u.kind==='wall')continue;
+    u.buffs=u.buffs.filter(function(b){return b.until>S.tick;});
+    if(S.tick%10===0)tickStatus(S,u);if(u.hp<=0)continue;
+    if(u.freeze>0){u.freeze--;continue;}
+    if(u.stun>0){u.stun--;continue;}
+    if(u.td){ /* a walker: one hex every u.tdn ticks, nothing else */
+      if(buffVal(u,'root'))continue;
+      if(++u.tdc>=u.tdn){u.tdc=0;u.pi++;
+        if(u.pi>=u.pth.length){u.hp=0;u.leaked=1;u.dead=true;T.leaks++;ev(S,{k:'leak',t:u.id});continue;}
+        u.q=u.pth[u.pi][0];u.r=u.pth[u.pi][1];bleedAct(S,u);}
+      continue;}
+    /* heroes never move: they shoot the foe nearest the exit among those in range */
+    if(u.cd>0)u.cd--;if(u.mcd>0)u.mcd--;
+    foes=alive(S,1);tg=null;
+    foes.forEach(function(e){if(e.td&&hdist(u,e)<=u.rng&&!buffVal(e,'hide')&&(!tg||e.pi>tg.pi||(e.pi===tg.pi&&e.hp<tg.hp)))tg=e;});
+    if(tg)u.tgt=tg;else u.tgt=null;
+    if(u.mmax>0&&u.mana>=u.mmax&&foes.length&&nearestEnemy(S,u)&&(tg||u.key==='moss'||u.key==='hale'||u.key==='oda'||u.key==='brandt')){cast(S,u);bleedAct(S,u);if(u.hp<=0)continue;}
+    if(tg&&tg.hp>0&&u.cd<=0&&!buffVal(u,'noatk')){attack(S,u,tg);bleedAct(S,u);u.cd+=10/Math.max(.2,atkSpeed(u));}
+  }
+  /* count kills, drop the dead */
+  for(i=0;i<S.units.length;i++){u=S.units[i];if(u.td&&u.hp<=0&&!u.leaked&&!u.cnt){u.cnt=1;u.dtick=S.tick;T.kills++;ev(S,{k:'gold',t:u.id,d:1});}}
+  if(S.tick%20===0)S.units=S.units.filter(function(x){return !(x.td&&x.hp<=0&&S.tick-(x.dtick||S.tick-99)>10);});
+  if(T.leaks>=T.maxLeaks||S.tick>=T.maxTick){S.over=true;S.winner=0;}
+}
 function simStep(S){
   if(S.over)return;S.tick++;
   if(S.later&&S.later.length){var due=S.later.filter(function(f){return f.t<=S.tick;});S.later=S.later.filter(function(f){return f.t>S.tick;});due.forEach(function(f){f.fn();});}
+  if(S.td)return tdStep(S);
   if(S.tick===1)S.units.forEach(function(u){if(u.hp>0&&u.kind==='hero'&&u.key==='mire'&&u.path==='scales'){u.ambush=true;u.buffs.push({until:1e9,hide:1});}});
   var us=alive(S);
   if(S.tick===1)us.forEach(function(u){if(u.dive){var fs=alive(S,1-u.team);if(fs.length){var far=fs.reduce(function(a,b){return hdist(u,b)>hdist(u,a)?b:a;});blinkTo(S,u,far);}}});
@@ -1379,7 +1417,11 @@ function chestGold(){return COFFER_GOLD*(G&&G.relics&&G.relics.indexOf('hoard')>
 function chestURL(){return obsCanvas('coffer').toDataURL();}
 /* the gate spans two hexes side by side: (q,r) and (q+1,r) */
 function gateAt(q,r){return !!(G&&G.gatePos&&G.gatePos.r===r&&(G.gatePos.q===q||G.gatePos.q+1===q));}
-function blockedHex(q,r){return !!obsAt(q,r)||wallAt(q,r);}
+function tdRoom(){return !!(G&&G.enc&&G.enc.td);}
+var TDK={};
+function tdTrackAt(q,r){if(!tdRoom())return false;var k=G.enc.room;if(!TDK[k]){TDK[k]={};roomInfo(k).deco.forEach(function(d){if(d.k==='path')TDK[k][d.q+','+d.r]=1;});}return !!TDK[k][q+','+r];}
+function homeRow(r){return tdRoom()||r>=MID;}
+function blockedHex(q,r){if(tdRoom())return !!obsAt(q,r)||tdTrackAt(q,r);return !!obsAt(q,r)||wallAt(q,r);}
 /* the gate is a market item (Camp unlock); you own at most one, on the bench or on the board */
 /* item slots: 3, or 4 once you buy the extra slot at the Camp (needs mastery 3) */
 var XSLOT_COST=100;
@@ -1391,7 +1433,7 @@ function wallsLeft(){return G.stash.filter(function(k){return k==='wall';}).leng
 /* entering a fight: nothing may stand on an obstacle */
 function clearObstacleHexes(){if(!G||!G.enc)return;function back(k,v){if(G.stash.length<STASH)G.stash.push(k);else{G.gold+=v;toast('No bench room: your '+(k==='gate'?'gate':k==='wall'?'wall':'chest')+' was sold for '+v+' gold');}}
   if(G.gatePos&&(obsAt(G.gatePos.q,G.gatePos.r)||obsAt(G.gatePos.q+1,G.gatePos.r))){G.gatePos=null;back('gate',GATE_SELL);}G.wallPos=(G.wallPos||[]).filter(function(w){if(obsAt(w.q,w.r)){back('wall',WALL_SELL);return false;}return true;});G.cofferPos=(G.cofferPos||[]).filter(function(w){if(obsAt(w.q,w.r)){back('chest',COFFER_COST);return false;}return true;});
-  G.party.forEach(function(h){if(h.pos&&blockedHex(h.pos.q,h.pos.r)){var keep=h.pos;h.pos=null;var f=freePlayerHex();h.pos=f||null;}});}
+  G.party.forEach(function(h){if(h.pos&&(blockedHex(h.pos.q,h.pos.r)||(!tdRoom()&&h.pos.r<MID))){var keep=h.pos;h.pos=null;var f=freePlayerHex();h.pos=f||null;}});}
 /* ---------- rooms: fixed, hand-made maps. Each act uses two regular rooms (3 fights each), then a boss room ---------- */
 OBS_PAINT.tree={w:20,h:24,p:function(px){var sd=5,R=function(){sd=(sd*16807)%2147483647;return sd/2147483647;};
   for(var y=16;y<24;y++)for(var x=8;x<12;x++)px(x,y,x===8?'#8a6238':x===11?'#4a3220':'#6a4a2a');
@@ -1408,6 +1450,13 @@ OBS_PAINT.log={w:24,h:15,p:function(px){
   var cols=['#e2ddd0','#cfcabc','#b6b1a3','#9d988a','#827d71','#6a665c'];
   for(var y=1;y<14;y++){var row=Math.min(5,Math.floor((y-1)/2.2));for(var x=0;x<24;x++){var c=cols[row];if(x%6===3)c=cols[Math.min(5,row+1)];if(x<2)c='#ece8dc';if(x>21)c='#6a665c';if((y<3||y>11)&&(x<1||x>22))continue;px(x,y,c);}}
   [[6,5],[7,6],[15,8],[16,9],[17,9]].forEach(function(c){px(c[0],c[1],'#5a564c');});}};
+OBS_PAINT.logb={w:24,h:15,p:function(px){
+  var cols=['#e2ddd0','#cfcabc','#b6b1a3','#9d988a','#827d71','#6a665c'],edge=[17,15,18,14,17,15,18,16,14,17,15,13,16];
+  for(var y=1;y<14;y++){var row=Math.min(5,Math.floor((y-1)/2.2)),lim=edge[y-1];for(var x=0;x<lim;x++){var c=cols[row];if(x%6===3)c=cols[Math.min(5,row+1)];if(x<2)c='#ece8dc';px(x,y,c);}}
+  [[9,1],[9,2],[10,3],[9,4],[10,5],[10,6],[9,7],[10,8],[10,9],[11,10],[10,11],[11,12],[11,13]].forEach(function(c){px(c[0],c[1],'#4a463d');});
+  [[6,5],[7,6],[3,9]].forEach(function(c){px(c[0],c[1],'#5a564c');});
+  [[19,10],[20,10],[19,11],[20,11],[21,11],[19,12],[20,12],[21,12],[22,12],[20,13],[21,13],[22,13]].forEach(function(c){px(c[0],c[1],c[1]<12?'#cfcabc':'#9d988a');});
+  [[16,13],[17,12],[17,13]].forEach(function(c){px(c[0],c[1],'#b6b1a3');});}};
 OBS_PAINT.cliff={w:22,h:24,p:function(px){var P=[[0,22],[4,10],[7,13],[12,1],[16,11],[18,8],[21,22]];
   function top(x){for(var i=0;i<P.length-1;i++){if(x>=P[i][0]&&x<=P[i+1][0]){var t=(x-P[i][0])/(P[i+1][0]-P[i][0]);return P[i][1]+(P[i+1][1]-P[i][1])*t;}}return 22;}
   for(var x=0;x<22;x++){var t0=Math.round(top(x));for(var y=t0;y<23;y++){var lit=x<12?1:0,c=lit?(y<t0+3?'#cdbfae':(y%5===0?'#8f8272':'#a8998a')):(y<t0+2?'#a89a89':(y%5===0?'#5e5348':'#76695b'));px(x,y,c);}}}};
@@ -1416,9 +1465,9 @@ OBS_PAINT.bars={w:22,h:22,p:function(px){
     if(y<4)c=y===0?'#c3c8cf':'#8a8f96';else if(x<3||x>18)c=x===0||x===19?'#b0b5bc':'#6c7178';else if(y>18)c=y===19?'#8a8f96':'#5a5f66';
     else if(x===5||x===9||x===13||x===17)c='#3a3a44';else if(x===6||x===10||x===14||x===18)c='#7a7a8a';else if(y===9||y===15)c='#2a2a32';
     if(c)px(x,y,c);}}};
-OBS_NAME.tree='Tree';OBS_NAME.pine='Tundra Pine';OBS_NAME.coffin='Coffin';OBS_NAME.log='Fallen Column';OBS_NAME.cliff='Cliff';OBS_NAME.bars='Iron Bars';
+OBS_NAME.tree='Tree';OBS_NAME.pine='Tundra Pine';OBS_NAME.coffin='Coffin';OBS_NAME.log='Fallen Column';OBS_NAME.logb='Broken Column';OBS_NAME.cliff='Cliff';OBS_NAME.bars='Iron Bars';
 var BREAK={crate:1,fence:1,bars:1},GROUNDK={water:1,chasm:1,lava:1,bog:1};
-var RCH={w:'water',v:'chasm',l:'lava',m:'bog',t:'tree',n:'pine',p:'pillar',f:'log',c:'coffin',r:'cliff',R:'rock',x:'crate',y:'fence',i:'bars'};
+var RCH={w:'water',v:'chasm',l:'lava',m:'bog',t:'tree',n:'pine',p:'pillar',f:'log',g:'logb',c:'coffin',r:'cliff',R:'rock',x:'crate',y:'fence',i:'bars'};
 var RDECO={b:'bridge',u:'rune',k:'cell',s:'dais'};
 var PAL={def:['#cfa48d','#d6c08f','#d8b09a','#c4987f','#e0cc9e','#c9b282','#a8735e','#a08654','#e0bca6','#e8d6ab'],
   snow:['#dbe5ee','#e9f0f6','#e6eef5','#cdd9e4','#f6fafd','#dbe5ee','#9fb2c4','#a9bccd','#f2f7fb','#ffffff'],
@@ -1432,7 +1481,7 @@ var PAL={def:['#cfa48d','#d6c08f','#d8b09a','#c4987f','#e0cc9e','#c9b282','#a873
   shrine:['#c1c9c8','#ced5d3','#cad1d0','#aeb8b6','#d8dedc','#bcc5c3','#76847f','#82908b','#d3dad8','#e0e6e4']};
 var ROOMS={
  river:{n:'River Crossing',pal:'grass',m:['.......','.......','.......','wbwwwbw','wbwwwbw','.......','.......','.......'],note:'A wide river with two narrow bridges.'},
- ruins:{n:'Ruined Hall',pal:'def',m:['.......','.ff.ff.','.......','ff...ff','.ff.ff.','.......','ff...ff','.......'],note:'Toppled columns block the hall.'},
+ ruins:{n:'Ruined Hall',pal:'def',m:['.......','.ff..g.','.......','ff...ff','.ff.ff.','.......','g....ff','.......'],note:'Toppled columns block the hall. A couple are cracked in half.'},
  forest:{n:'Forest Clearing',pal:'grass',m:['.......','t.....t','.......','..tt...','.......','...tt..','t.....t','.......'],note:'A few trees, mostly open ground.'},
  chasm:{n:'Collapsed Bridge',pal:'rockf',m:['.......','.......','.......','vvbbbvv','vvbbbvv','.......','.......','.......'],note:'A chasm, crossed by one wide bridge.'},
  crypt:{n:'Crypt',pal:'crypt',m:['.......','cc...cc','.......','cc...cc','.......','cc...cc','.......','.......'],note:'Coffins line a long aisle.'},
@@ -1448,6 +1497,12 @@ var ROOMS={
  throne:{n:'Throne Room',pal:'throne',boss:1,m:['.......','p..s..p','p.....p','p.....p','p.....p','p.....p','p.....p','.......'],note:'Columns run down both sides of the hall.'}
 };
 var REG_ROOMS=['river','ruins','forest','chasm','crypt','snow','swamp','arena','canyon','mage','barricade','prison'],BOSS_ROOMS=['shrine','lava','throne'];
+/* ---------- bonus rounds: tower defense. Foes walk a track to the exit; heroes stand still on open ground. ---------- */
+RDECO.z='path';
+ROOMS.tdA={n:'Bonus: Dungeon',pal:'crypt',td:1,trk:'#7d746c',spd:9,m:["zzzzzzp", ".....z.", "zzz...z", "zpzp.pz", "z.zzzzz", "zp...p.", ".zzzzzz", "p.....p"],paths:[[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[5,1],[6,2],[6,3],[6,4],[5,4],[4,4],[3,4],[2,4],[2,3],[2,2],[1,2],[0,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6]]],note:'A winding dungeon corridor. Foes walk a little faster here.'};
+ROOMS.tdB={n:'Bonus: Forest',pal:'grass',td:1,trk:'#9a7a50',spd:12,m:["zzzz..t", "t..z..t", ".zzzzz.", "z....z.", "zttt..z", "z...t.z", ".zzzzzz", "tt.z.t."],paths:[[[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[2,2],[1,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[3,7]],[[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[4,2],[5,2],[5,3],[6,4],[6,5],[6,6],[5,6],[4,6],[3,6],[3,7]]],note:'The path splits, then comes back together.'};
+ROOMS.tdC={n:'Bonus: Snowfield',pal:'snow',td:1,trk:'#8d98a8',spd:12,m:["zzz..nz", "..zn.nz", "zzz.zzz", "z...z..", ".zz.z.n", "n.zz.n.", ".n.z...", "nn.zzzz"],paths:[[[0,0],[1,0],[2,0],[2,1],[2,2],[1,2],[0,2],[0,3],[1,4],[2,4],[2,5],[3,6],[3,7],[4,7],[5,7],[6,7]],[[6,0],[6,1],[6,2],[5,2],[4,2],[4,3],[4,4],[3,5],[2,5],[3,6],[3,7],[4,7],[5,7],[6,7]]],note:'Two roads from the north join near the end.'};
+var TD_ROOMS=['tdA','tdB','tdC'];
 /* parse a room once: blocking obstacles, decorations, rune hexes and cells */
 function roomInfo(k){var R=ROOMS[k];if(R.info)return R.info;var obs=[],deco=[],runes={},cells=[];
   for(var r=0;r<ROWS;r++)for(var q=0;q<COLS;q++){var ch=R.m[r].charAt(q);if(RCH[ch])obs.push({q:q,r:r,k:RCH[ch]});else if(RDECO[ch]){deco.push({q:q,r:r,k:RDECO[ch]});if(ch==='u')runes[q+','+r]=1;if(ch==='k')cells.push({q:q,r:r});}}
@@ -1463,7 +1518,7 @@ function roomBlocked(k){var o={};roomInfo(k).obs.forEach(function(b){o[b.q+','+b
 var $=function(id){return document.getElementById(id);};
 function el(t,c,h){var e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-var TUNE={m:2.4,acts:[.8,2.3,4.05],step:.07,budget:1,main:1.18,r0:.76,r1:.05,boss:[2.0,2.7,4.2],gold:[5,0,0,5,5],bossGold:[10,15,20]};
+var TUNE={m:2.4,acts:[.8,2.3,4.05],step:.07,budget:1,main:1.18,r0:.76,r1:.05,boss:[2.0,2.7,4.2],gold:[5,0,0,5,5],bossGold:[10,15,20],td:{hp0:[295,585,1130],g1:.12,g2:.006,gap0:20,gapMin:9,gapDec:.35}};
 var G=null,S=null,phase='menu',speed=1,view=null,fightAcc=0,lastT=0,sel=null,fightUnits=[],prepFoes=[],fx={proj:[],rings:[],txt:[],parts:[]},shakeUntil=0;
 try{speed=parseInt(localStorage.getItem('dd1_speed')||'1',10)||1;}catch(e){}
 var META={bestAct:0,bestStep:0,wins:0,runs:0};
@@ -1484,7 +1539,7 @@ function buildBoardBG(){
   var cv=document.createElement('canvas');cv.width=BW;cv.height=BH;var x=cv.getContext('2d');var sd=11;var R=function(){sd=(sd*16807)%2147483647;return sd/2147483647;};
   x.fillStyle=P[1];x.fillRect(0,0,BW,BH);
   var GC={water:['#3f78b8','#5a93d2','#2f5f98'],chasm:['#1c1824','#2b2536','#100d16'],lava:['#d8501c','#f08a2a','#a82e10'],bog:['#4d5a36','#66744a','#3a4528']};
-  for(var r=0;r<ROWS;r++)for(var q=0;q<COLS;q++){var c=center(q,r),foe=r<MID,key=q+','+r,g=gk[key],d=dc[key];
+  for(var r=0;r<ROWS;r++)for(var q=0;q<COLS;q++){var c=center(q,r),foe=r<MID&&!(rm&&rm.td),key=q+','+r,g=gk[key],d=dc[key];
     hexPath(x,c[0],c[1],HR);x.fillStyle=g?GC[g][0]:(foe?P[0]:P[1]);x.fill();
     x.save();hexPath(x,c[0],c[1],HR-1);x.clip();
     for(var k=0;k<34;k++){var px=Math.floor(c[0]-HR+R()*HR*2),py=Math.floor(c[1]-HR+R()*HR*2);x.fillStyle=g?GC[g][R()<.5?1:2]:(foe?(R()<.5?P[2]:P[3]):(R()<.5?P[4]:P[5]));x.fillRect(px,py,1,1);}
@@ -1493,12 +1548,13 @@ function buildBoardBG(){
     else if(g==='chasm'){x.fillStyle='#07050b';x.fillRect(Math.floor(c[0]-6),Math.floor(c[1]-2),12,6);}
     else if(g==='bog'){x.fillStyle='#8aa05a';for(var w3=0;w3<3;w3++)x.fillRect(Math.floor(c[0]-8+R()*14),Math.floor(c[1]-8+R()*16),2,2);}
     else if(!g){x.fillStyle=foe?P[8]:P[9];x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]-HR),HR*2,1);R();}
-    if(d==='bridge'){x.fillStyle='#8a6238';x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]-9),HR*2,18);x.fillStyle='#a87a48';for(var pl=-HR;pl<HR;pl+=4)x.fillRect(Math.floor(c[0]+pl),Math.floor(c[1]-8),3,16);x.fillStyle='#5a3c1c';x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]-9),HR*2,1);x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]+8),HR*2,1);}
+    if(d==='path'){x.fillStyle=rm.trk;x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]-HR),HR*2,HR*2);for(var ps=0;ps<9;ps++){x.fillStyle=R()<.5?'#ffffff26':'#00000026';x.fillRect(Math.floor(c[0]-HR+R()*HR*2),Math.floor(c[1]-HR+R()*HR*2),3,2);}}
+    else if(d==='bridge'){x.fillStyle='#8a6238';x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]-9),HR*2,18);x.fillStyle='#a87a48';for(var pl=-HR;pl<HR;pl+=4)x.fillRect(Math.floor(c[0]+pl),Math.floor(c[1]-8),3,16);x.fillStyle='#5a3c1c';x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]-9),HR*2,1);x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]+8),HR*2,1);}
     else if(d==='rune'){x.strokeStyle='#8f6bd8';x.lineWidth=1;x.beginPath();x.arc(Math.round(c[0])+.5,Math.round(c[1])+.5,8,0,7);x.stroke();x.fillStyle='#c9a8ff';x.fillRect(Math.round(c[0])-1,Math.round(c[1])-5,3,10);x.fillRect(Math.round(c[0])-5,Math.round(c[1])-1,10,3);x.fillStyle='#8f6bd8';x.fillRect(Math.round(c[0]),Math.round(c[1])-4,1,8);x.fillRect(Math.round(c[0])-4,Math.round(c[1]),8,1);}
     else if(d==='cell'){x.fillStyle='#00000030';x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]-HR),HR*2,HR*2);x.strokeStyle='#4a4a52';x.lineWidth=1;x.strokeRect(Math.round(c[0])-8.5,Math.round(c[1])-8.5,17,17);}
     else if(d==='dais'){x.fillStyle='#d8b04a50';x.fillRect(Math.floor(c[0]-HR),Math.floor(c[1]-HR),HR*2,HR*2);x.strokeStyle='#d8b04a';x.lineWidth=1;hexPath(x,c[0],c[1],HR-4);x.stroke();}
     x.restore();hexPath(x,c[0],c[1],HR);x.strokeStyle=g?GC[g][2]:(foe?P[6]:P[7]);x.lineWidth=1;x.stroke();}
-  x.fillStyle='#8a5a2a60';x.fillRect(6,Math.round(BY+3.5*VHT)+1,BW-12,1);
+  if(!(rm&&rm.td)){x.fillStyle='#8a5a2a60';x.fillRect(6,Math.round(BY+3.5*VHT)+1,BW-12,1);}
   boardBG=cv;bgKey=rk;
 }
 /* ---------- run state ---------- */
@@ -1508,7 +1564,7 @@ function onBoard(){return G.party.filter(function(h){return h.pos;});}
 function inReserve(){return G.party.filter(function(h){return !h.pos;});}
 function heroByUid(u){return G.party.filter(function(h){return h.uid===u;})[0];}
 function owned(hid){return G.party.filter(function(h){return h.hid===hid;})[0];}
-function freePlayerHex(){var pref=[[3,5],[2,5],[4,5],[3,6],[2,6],[4,6],[1,5],[5,5],[3,7],[2,7],[4,7],[1,6],[5,6],[0,5],[6,5],[1,7],[5,7],[0,6],[6,6],[0,7],[6,7],[3,4],[2,4],[4,4],[1,4],[5,4],[0,4],[6,4]];
+function freePlayerHex(){var pref=[[3,5],[2,5],[4,5],[3,6],[2,6],[4,6],[1,5],[5,5],[3,7],[2,7],[4,7],[1,6],[5,6],[0,5],[6,5],[1,7],[5,7],[0,6],[6,6],[0,7],[6,7],[3,4],[2,4],[4,4],[1,4],[5,4],[0,4],[6,4]];if(tdRoom())for(var tr=3;tr>=0;tr--)for(var tq=0;tq<COLS;tq++)pref.push([tq,tr]);
   for(var i=0;i<pref.length;i++){var q=pref[i][0],r=pref[i][1];if(blockedHex(q,r))continue;if(!G.party.some(function(h){return h.pos&&h.pos.q===q&&h.pos.r===r;}))return {q:q,r:r};}return null;}
 function addHero(hid){var h={uid:G.uid++,hid:hid,lv:1,perks:[],path:null,items:[],pos:null};
   if(onBoard().length<boardCap())h.pos=freePlayerHex();G.party.push(h);return h;}
@@ -1549,7 +1605,7 @@ function placeFoes(foes,rk){var used={},blk=rk?roomBlocked(rk):{},info=rk?roomIn
 function genBoss(act){var i=(act-1)%ACTS,sc=null,asc2=null;
   if(act>ACTS){var top=BOSSES[ACTS-1],B=BOSSES[i],k=TUNE.boss[ACTS-1]*deepMult(act);sc=k*top.hp/B.hp;asc2=k*top.atk/B.atk;} /* endless: earlier bosses return at deep strength */
   var bf=[{type:'boss',i:i,q:3,r:1,sc:sc,asc:asc2}];
-  var brk=BOSS_ROOMS[(act-1)%BOSS_ROOMS.length];return {obs:roomInfo(brk).obs.slice(),room:brk,diff:'boss',name:BOSSES[i].n,foes:bf,reward:{gold:TUNE.bossGold[Math.min(act,ACTS)-1]-(asc(3)?4:0)}};}
+  var brk=BOSS_ROOMS[(act-1)%BOSS_ROOMS.length];return {obs:roomInfo(brk).obs.slice(),room:brk,diff:'boss',name:BOSSES[i].n,foes:bf,reward:{gold:0}};}
 function foeUnits(enc){return ascFoes(enc.foes.map(function(f){
   if(f.type==='boss'){var b=bossUnit(f.i,f.sc||TUNE.boss[f.i],f.asc||null);b.q=f.q;b.r=f.r;return b;}
   if(f.type==='hero')return heroUnit({hid:f.hid,lv:f.lv,perks:[],path:f.path,items:[],uid:-1},1,f.q,f.r,[]);
@@ -1647,10 +1703,15 @@ function nextFight(){
   enterPrep();
   if(G.step===STEPS)toast((G.act>ACTS?'Deep ':'Act ')+G.act+' boss: '+G.enc.name);
 }
+function genBonus(){var seen=G.tdSeen||[],left=TD_ROOMS.filter(function(k){return seen.indexOf(k)<0;});if(!left.length){left=TD_ROOMS.slice();seen=[];}
+  var k=left[Math.floor(rnd()*left.length)];G.tdSeen=seen.concat([k]);return {diff:'bonus',td:true,name:'Bonus round',room:k,foes:[],obs:roomInfo(k).obs.slice(),reward:{gold:0}};}
+function startBonus(){G.enc=genBonus();G.opts=null;G.rr=0;enterPrep();toast('Bonus round: stop the foes. 1 gold for every kill.');}
+function tdParams(){var R=ROOMS[G.enc.room],a=Math.min(G.act,ACTS),T=TUNE.td;
+  return {paths:R.paths,spd:R.spd,hp0:T.hp0[a-1]*(G.act>ACTS?deepMult(G.act):1),g1:T.g1,g2:T.g2,gap0:T.gap0,gapMin:T.gapMin,gapDec:T.gapDec,maxLeaks:5};}
 function encHTML(e){
   var units=e.foes.map(function(f){if(f.type==='boss')return '<img class="big" src="'+spriteURL(BOSSES[f.i].spr,4,'mon')+'" alt="">';
     if(f.type==='hero')return '<img src="'+spriteURL(HEROES[f.hid].spr,2,'foe')+'" alt="" title="'+esc(HEROES[f.hid].n)+'">';return '<img src="'+spriteURL(MONSTERS[f.key].spr,2,'mon')+'" alt="">';}).join('');
-  var rw=['<li>'+e.reward.gold+' gold</li>'];if(e.reward.item)rw.push('<li>An item of your choice</li>');if(e.reward.relic)rw.push('<li>A relic of your choice</li>');
+  var rw=[e.diff==='boss'?'<li>A bonus round follows</li>':'<li>'+e.reward.gold+' gold</li>'];if(e.reward.item)rw.push('<li>An item of your choice</li>');if(e.reward.relic)rw.push('<li>A relic of your choice</li>');
   var dl={easy:'EASY',hard:'HARD',deadly:'DEADLY',boss:'BOSS'}[e.diff],dc={easy:'#5bbf4a',hard:'#ffb347',deadly:'#e0574b',boss:'#e2b23f'}[e.diff];
   return '<div class="row">'+units+'</div><b>'+esc(e.name)+'</b><span class="diff" style="color:'+dc+'">'+dl+'</span>'+(e.diff==='boss'?'<small>'+esc(BOSSES[e.foes[0].i].d)+'</small>':'')+'<ul>'+rw.join('')+'</ul>';
 }
@@ -1659,23 +1720,24 @@ function startFight(){if(busy())return;
   if(phase!=='prep')return;var b=onBoard();if(!b.length)return toast('Place at least one hero on the board');
   var pcell=G.enc.room&&roomInfo(G.enc.room).cells.filter(function(c){return c.r>=MID;})[0];
   if(pcell&&!b.some(function(h){return h.pos.q===pcell.q&&h.pos.r===pcell.r;})){var pri=b.slice().sort(function(a,c){return sellValue(a)-sellValue(c);})[0];pri.pos={q:pcell.q,r:pcell.r};toast(HEROES[pri.hid].n+' was locked in the cell');}
-  G.shop.forEach(function(o){o.undo=null;});RLV=G.rlv||{};MAST=masteryBuffs();gainFightXP(b);
+  G.shop.forEach(function(o){o.undo=null;});RLV=G.rlv||{};MAST=masteryBuffs();if(!G.enc.td)gainFightXP(b);
   UID=1;var mine=b.map(function(h){return heroUnit(h,0,h.pos.q,h.pos.r,G.relics);});
   if(rv('lonewolf',G.relics)){var lw=1+rv('lonewolf',G.relics)/100*Math.max(0,boardCap()-b.length);mine.forEach(function(u){u.hp*=lw;u.mhp=u.hp;u.atk*=lw;u.ap*=lw;});}
   if(G.relics.indexOf('belt')>=0){var top=0;b.forEach(function(h,i){if(h.lv>b[top].lv)top=i;});var cu=mine[top];cu.hp*=1.25;cu.mhp=cu.hp;cu.atk*=1.25;cu.ap*=1.25;}
-  var foes=foeUnits(G.enc);
-  var wh=wallHP(),owh=Math.round(wh*(1+rv('mason',G.relics)/100)),walls=(G.wallPos||[]).map(function(w){return mkU({team:2,kind:'wall',own:1,key:'wall',name:'Your Wall',q:w.q,r:w.r,hp:owh,atk:0,as:1,rng:0,arm:10,mmax:0});})
+  var td=!!G.enc.td,foes=td?[]:foeUnits(G.enc);
+  var wh=wallHP(),owh=Math.round(wh*(1+rv('mason',G.relics)/100)),walls=(td?[]:(G.wallPos||[])).map(function(w){return mkU({team:2,kind:'wall',own:1,key:'wall',name:'Your Wall',q:w.q,r:w.r,hp:owh,atk:0,as:1,rng:0,arm:10,mmax:0});})
     .concat((G.enc.obs||[]).filter(function(o){return BREAK[o.k];}).map(function(o){return mkU({team:2,kind:'wall',key:o.k,name:OBS_NAME[o.k],q:o.q,r:o.r,hp:Math.round(wh*(o.k==='bars'?.9:.6)),atk:0,as:1,rng:0,arm:5,mmax:0});}));
-  if(G.gatePos){var gm=mkU({team:2,kind:'wall',own:1,gate:true,key:'gate',name:'Your Gate',q:G.gatePos.q,r:G.gatePos.r,hp:owh*1.5,atk:0,as:1,rng:0,arm:10,mmax:0}),
+  if(G.gatePos&&!td){var gm=mkU({team:2,kind:'wall',own:1,gate:true,key:'gate',name:'Your Gate',q:G.gatePos.q,r:G.gatePos.r,hp:owh*1.5,atk:0,as:1,rng:0,arm:10,mmax:0}),
     gp=mkU({team:2,kind:'wall',own:1,gate:true,key:'gatepart',name:'Your Gate',q:G.gatePos.q+1,r:G.gatePos.r,hp:owh*1.5,atk:0,as:1,rng:0,arm:10,mmax:0,link:gm});gm.parts=[gp];walls.push(gm,gp);}
-  (G.cofferPos||[]).forEach(function(w){walls.push(mkU({team:2,kind:'wall',own:1,coffer:true,key:'coffer',name:'Treasure Chest',q:w.q,r:w.r,hp:Math.round(owh*.6),atk:0,as:1,rng:0,arm:5,mmax:0}));});
-  S=mkSim(mine.concat(foes).concat(walls),{obs:(G.enc.obs||[]).filter(function(o){return !BREAK[o.k];}),env:G.enc.room?ROOMS[G.enc.room].env:null,runes:G.enc.room?roomInfo(G.enc.room).runes:null,cells:G.enc.room?roomInfo(G.enc.room).cells:null,relics:G.relics,themes0:partyThemes(b),themes1:foeThemes(G.enc),cmd:G.cmd});
+  (td?[]:(G.cofferPos||[])).forEach(function(w){walls.push(mkU({team:2,kind:'wall',own:1,coffer:true,key:'coffer',name:'Treasure Chest',q:w.q,r:w.r,hp:Math.round(owh*.6),atk:0,as:1,rng:0,arm:5,mmax:0}));});
+  S=mkSim(mine.concat(foes).concat(walls),{obs:(G.enc.obs||[]).filter(function(o){return !BREAK[o.k];}),env:G.enc.room?ROOMS[G.enc.room].env:null,runes:G.enc.room?roomInfo(G.enc.room).runes:null,cells:G.enc.room?roomInfo(G.enc.room).cells:null,td:td?tdParams():null,relics:G.relics,themes0:partyThemes(b),themes1:foeThemes(G.enc),cmd:G.cmd});
   S.units.forEach(function(u){var c=center(u.q,u.r);u.rx=c[0];u.ry=c[1];});
   fx={proj:[],rings:[],txt:[],parts:[]};phase='fight';fightAcc=0;sel=null;view=null;renderAll();
 }
 function skipFight(){if(phase!=='fight')return;var n=0;while(!S.over&&n++<2000)simStep(S);S.ev=[];endFight();}
 function endFight(){if(phase!=='fight')return;
   if(phase!=='fight')return;phase='result';
+  if(G.enc.td)return endBonus();
   var win=S.winner===0,boss=G.enc.diff==='boss',report=damageReport(),msg='';
   var gold=0,pathGold=S.gold,noneFell=S.units.filter(function(u){return u.team===0;}).every(function(u){return u.hp>0;});
   onBoard().forEach(function(h){if(h.path==='apoth')pathGold+=1;});
@@ -1696,11 +1758,17 @@ function endFight(){if(phase!=='fight')return;
   var tam=0;if(cmd('tamsin')){var th0=G.hp;G.hp=Math.min(maxHp(),G.hp+4);tam=G.hp-th0;}
   renderAll();
   var title=win?(boss?G.enc.name+' falls!':'Victory'):'Defeat';
-  var body='<h2>'+title+'</h2>'+(tam?'<p>Old Tamsin tends your wounds: <b style="color:var(--ok)">+'+tam+' health</b>.</p>':'')+(win?'<p>You earn <b style="color:var(--gold)">'+gold+' gold</b>.'+(medic?' Your field medic patches you up: <b style="color:var(--ok)">+'+medic+' health</b>.':'')+'</p>':msg)+(pathGold?'<p>Your heroes\' paths bring in <b style="color:var(--gold)">'+pathGold+' more gold</b>.</p>':'')+cofMsg+growMsg+nextRewardText(win)+report;
+  var body='<h2>'+title+'</h2>'+(tam?'<p>Old Tamsin tends your wounds: <b style="color:var(--ok)">+'+tam+' health</b>.</p>':'')+(win?(gold>0?'<p>You earn <b style="color:var(--gold)">'+gold+' gold</b>.':'<p>A bonus round follows: stop the foes for 1 gold each.')+(medic?' Your field medic patches you up: <b style="color:var(--ok)">+'+medic+' health</b>.':'')+'</p>':msg)+(pathGold?'<p>Your heroes\' paths bring in <b style="color:var(--gold)">'+pathGold+' more gold</b>.</p>':'')+cofMsg+growMsg+nextRewardText(win)+report;
   dialog(body,[{html:'<b>Continue</b>',fn:function(){afterRewards(win);}}],true,true);
 }
+function endBonus(){var T=S.td,report=damageReport(),kills=T.kills,pathGold=S.gold,tooth=rv('tooth',G.relics);
+  onBoard().forEach(function(h){if(h.path==='apoth')pathGold+=1;});
+  G.gold+=kills+pathGold+tooth;renderAll();
+  var body='<h2>Bonus round complete</h2><p>You stopped <b>'+kills+'</b> foe'+(kills===1?'':'s')+' and earn <b style="color:var(--gold)">'+(kills+tooth)+' gold</b>.</p>'+(pathGold?'<p>Your heroes\' paths bring in <b style="color:var(--gold)">'+pathGold+' more gold</b>.</p>':'')+report;
+  dialog(body,[{html:'<b>Continue</b>',fn:function(){afterRewards(true);}}],true,true);}
 function afterRewards(win){
   var next=function(){advance(win);};
+  if(G.enc.td)return next();
   /* fixed rewards, the same for a win or a loss: gold after fights 1 and 4, an item after 2 and 5, a relic after 3, 6 and a boss win.
      A lost boss fight gets nothing here. No relics left, or no room for an item, means gold instead. */
   if(!win&&G.enc.diff==='boss')return next();
@@ -1731,10 +1799,11 @@ function offerItems(done){var ks=itemPool(ai()+1).sort(function(){return rnd()-.
 function offerRelics(done){var ks=relicPool().filter(function(k){return G.relics.indexOf(k)<0;}).sort(function(){return rnd()-.5;}).slice(0,3);if(!ks.length)return done();
   dialog('<h2>Choose a relic</h2><p class="muted">Relics affect your whole party for the rest of the run.</p>',ks.map(function(k){var r=RELICS[k];return {html:'<div class="row"><img src="'+glyphURL(r.g,4)+'" alt=""></div><b>'+esc(r.n)+'</b><span>'+esc(r.d)+'</span>',fn:function(){G.relics.push(k);done();}};}),true,false,'Choosing a relic');}
 function advance(win){
-  var boss=G.enc.diff==='boss';
+  var boss=G.enc.diff==='boss',wasBonus=!!G.enc.td;if(wasBonus){boss=true;win=true;}
   if(boss&&!win){restock();nextFight();return;} /* face the boss again, with a fresh market */
   if(boss&&win){
     if(G.act===ACTS&&!G.endless)return victory();
+    if(!wasBonus)return startBonus(); /* a boss win leads to a bonus round, then the next act */
     G.act++;G.step=1;var actHeal=20;G.hp=Math.min(maxHp(),G.hp+actHeal);toast((G.act>ACTS?'Deep '+G.act+'. Your party rests: +'+actHeal+' health.':'Act '+G.act+'. Your party rests: +'+actHeal+' health, and room for one more hero on the board.'));
     if(G.endless&&G.act>META.bestDeep){META.bestDeep=G.act;saveMeta();}
   }else G.step++;
@@ -1824,12 +1893,12 @@ function chooseHeroFor(title,desc,heroes,fn,cancel,toStash,sell,benchFree){var i
 }
 var STASH=6,wallMode=false,gateMode=false,cofferMode=false;
 /* a wall waiting on the item bench: build it (it joins your walls for the run) or sell it */
-function benchWall(i){if(phase!=='prep')return toast('You can build walls between fights');if(busy())return;if(wallMode){wallMode=false;renderAll();return;}
+function benchWall(i){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('You can build walls between fights');if(busy())return;if(wallMode){wallMode=false;renderAll();return;}
   dialog('<h2>Wall</h2><p>Build it and it blocks foes until smashed, rebuilt after every fight. Or sell it.</p>',[
     {html:'<b>Place it</b><span>Tap an empty hex on your side to build it.</span>',fn:function(){wallMode=true;gateMode=false;cofferMode=false;sel=null;toast('Tap an empty hex on your side to build the wall');afterChange();}},
     {html:'<b>Sell it</b><span>+'+WALL_SELL+' gold</span>',fn:function(){if(G.stash[i]==='wall')G.stash.splice(i,1);G.gold+=WALL_SELL;toast('Sold the wall for '+WALL_SELL+' gold');afterChange();}},
     {html:'<b>Keep it</b><span>Leave it on the bench.</span>',fn:function(){}}],true);}
-function benchGate(i){if(phase!=='prep')return toast('You can place the gate between fights');if(busy())return;
+function benchGate(i){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('You can place the gate between fights');if(busy())return;
   if(gateMode){gateMode=false;renderAll();return;}gateMode=true;wallMode=false;cofferMode=false;sel=null;toast('Tap a hex on your side; the gate covers it and the one to its right');afterChange();}
 function stashClick(i){if(phase!=='prep')return toast('You can hand out items between fights');if(busy())return;wallMode=gateMode=cofferMode=false;var k=G.stash[i];if(!k)return;
   var room=G.party.slice();var sv=itemSellValue(k);
@@ -1883,7 +1952,7 @@ function showGuide(back){
    '<div><b>Heroes</b><span>A new hero costs 4 gold. Buy one you already have to level them up (max 6): 4, 5, 5, 6, then 6 gold. At level 3 they pick a path.</span></div>'+
    '<div><b>Items</b><span>Each hero carries up to 3 items, and only one of each kind. Finish a hero\'s story (mastery 3) to buy them a 4th slot at the Camp.</span></div>'+
    '<div><b>Effects</b><span>2, 4 and 6 heroes with the same effect unlock stronger bonuses.</span></div>'+
-   '<div><b>Gold</b><span>Every fight pays 5 gold, won or lost. Rewards come in a fixed order each act: gold after fights 1 and 4, an item after 2 and 5, a relic after 3 and 6, and a relic for beating the boss. If you are hurt you can rest instead of taking the reward. Bosses pay more gold; a lost boss fight gives no reward. UNDO refunds a purchase before the fight; selling gives back 75%.</span></div>'+
+   '<div><b>Gold</b><span>Every fight pays 5 gold, won or lost. Rewards come in a fixed order each act: gold after fights 1 and 4, an item after 2 and 5, a relic after 3 and 6, and a relic for beating the boss. If you are hurt you can rest instead of taking the reward. Beating a boss leads to a bonus round: foes walk a track and every kill pays 1 gold. A lost boss fight gives no reward. UNDO refunds a purchase before the fight; selling gives back 75%.</span></div>'+
    '<div><b>Obstacles</b><span>Rocks and pillars block the way. Crates, fences and your own walls can be smashed. Buy walls in the market, then tap WALLS and tap your side of the board to build them.</span></div>'+
    '<div><b>Health</b><span>Losing costs health. At 0 the run ends.</span></div>'+
    '<div><b>Camp</b><span>Runs earn Renown for upgrades, unlocks and harder Ascension levels.</span></div>'+
@@ -1936,9 +2005,11 @@ function renderEffects(){
 }
 function renderFoeLine(){var f=$('foeLine');if(!G||!G.enc){f.innerHTML='';return;}
   var e=G.enc,rm=e.room&&ROOMS[e.room],rt=rm?'<br><span class="muted">'+esc(rm.n)+'. '+esc(rm.note)+'</span>':'';
+  if(e.td){f.innerHTML='<b>Bonus round.</b> Foes walk the track to the exit and your heroes cannot move. Every kill pays 1 gold; it ends when 5 foes get out. No walls, gates or chests.'+rt;return;}
   if(e.diff==='boss'){f.innerHTML='<b>Boss.</b> '+esc(BOSSES[e.foes[0].i].d)+rt;return;}
   f.innerHTML='<b>'+esc(e.name)+'</b> · '+e.foes.length+' foe'+(e.foes.length>1?'s':'')+'. Tap a foe to inspect it.'+rt;}
 function renderBossBar(){var b=$('bossBar');var u=null;
+  if(G&&G.enc&&G.enc.td&&(phase==='prep'||phase==='fight')){b.hidden=false;var T=phase==='fight'&&S&&S.td;b.innerHTML='<div class="bt"><span>BONUS ROUND</span><span>'+(T?'Kills '+T.kills+' · Exit '+T.leaks+'/'+T.maxLeaks:'1 gold per kill')+'</span></div><div class="bb"><i style="width:'+(T?T.leaks/T.maxLeaks*100:0)+'%"></i></div>';return;}
   if(phase==='fight'&&S)u=S.units.filter(function(x){return x.boss;})[0];else if(phase==='prep')u=prepFoes.filter(function(x){return x.boss;})[0];
   if(!u){b.hidden=true;return;}b.hidden=false;var hp=Math.max(0,Math.round(u.hp));
   b.innerHTML='<div class="bt"><span>'+esc(u.name.toUpperCase())+'</span><span>'+hp+' / '+Math.round(u.mhp)+'</span></div><div class="bb"><i style="width:'+(hp/u.mhp*100)+'%"></i></div>';}
@@ -1951,7 +2022,7 @@ function renderStash(){var r=$('ibench');r.innerHTML='';if(!G)return;r.appendChi
   for(var i=0;i<STASH;i++){var k=G.stash[i],s=el('button','slot islot');s.type='button';
     if(k==='gate'){s.innerHTML='<img src="'+obsCanvas('gate').toDataURL()+'" alt="Gate" style="width:86%;height:auto;object-fit:contain">';s.title='Gate: tap to place it or sell it for '+GATE_SELL+' gold';(function(i){s.onclick=function(){benchGate(i);};})(i);}
     else if(k==='wall'){s.innerHTML='<img src="'+obsCanvas('wall').toDataURL()+'" alt="Wall" style="width:72%;height:auto;object-fit:contain">';s.title='Wall: tap to build it or sell it for '+WALL_SELL+' gold';(function(i){s.onclick=function(){benchWall(i);};})(i);}
-    else if(k==='chest'){s.innerHTML='<img src="'+chestURL()+'" alt="Treasure Chest" style="width:72%;height:auto;object-fit:contain">';s.title='Treasure Chest: place it on your side. If it survives and you win, it pays '+chestGold()+' gold. Tap to place.';s.onclick=function(){if(phase!=='prep')return toast('Place chests between fights');if(cofferMode){cofferMode=false;renderAll();return;}cofferMode=true;wallMode=false;gateMode=false;sel=null;toast('Tap an empty hex on your side to place the chest');renderAll();};}
+    else if(k==='chest'){s.innerHTML='<img src="'+chestURL()+'" alt="Treasure Chest" style="width:72%;height:auto;object-fit:contain">';s.title='Treasure Chest: place it on your side. If it survives and you win, it pays '+chestGold()+' gold. Tap to place.';s.onclick=function(){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('Place chests between fights');if(cofferMode){cofferMode=false;renderAll();return;}cofferMode=true;wallMode=false;gateMode=false;sel=null;toast('Tap an empty hex on your side to place the chest');renderAll();};}
     else if(k){s.classList.add('tier'+itemDef(k).t);s.innerHTML='<img src="'+glyphURL(itemDef(k).g,3,itemDef(k).t)+'" alt="'+esc(itemDef(k).n)+'">';s.title=itemDef(k).n+': '+itemDef(k).d+' (tap to give to a hero or sell)';(function(i){s.onclick=function(){stashClick(i);};})(i);}
     else s.disabled=true;r.appendChild(s);}}
 function renderReserve(){renderStash();var r=$('reserve');r.innerHTML='';if(!G)return;r.appendChild(el('span','lbl','BENCH'));
@@ -2057,6 +2128,7 @@ function handleEvents(){var now=performance.now();
       case 'slam':fx.rings.push({q:e.q,r:e.r,rad:2,c:'#e2b23f',t0:now,dur:500});shakeUntil=now+220;if(a)addText(a,'SLAM','#ffd166',true);break;
       case 'freeze':if(t)addText(t,'FROZEN','#bfeaff');break;
       case 'stun':if(t)addText(t,'STUNNED','#ffd166');break;
+      case 'leak':if(t){addText(t,'LEAK','#ff6b5a',true);}break;
       case 'die':if(t)burst(t,t.team?'#e0574b':'#6fd35a',12);break;
       case 'revive':if(t){addText(t,'REVIVED','#ffd166',true);burst(t,'#ffd166',14);}break;
       case 'spawn':if(t){var c=center(t.q,t.r);t.rx=c[0];t.ry=c[1];burst(t,'#c9b6ff',8);}break;
@@ -2092,11 +2164,11 @@ function loopBody(now){
   x.drawImage(boardBG,0,0);
   if(G&&G.enc&&(phase==='prep'||phase==='fight'||phase==='result'||phase==='over')){
     (G.enc.obs||[]).forEach(function(o){if(GROUNDK[o.k]||(phase!=='prep'&&BREAK[o.k]))return;var c=center(o.q,o.r);drawObs(x,o.k,c[0],c[1]);});
-    if(phase==='prep'){(G.wallPos||[]).forEach(function(w){var c=center(w.q,w.r);drawObs(x,'wall',c[0],c[1]);});if(G.gatePos){var gc=center(G.gatePos.q,G.gatePos.r);drawObs(x,'gate',gc[0]+HWD/2,gc[1]);}(G.cofferPos||[]).forEach(function(w){var c=center(w.q,w.r);drawObs(x,'coffer',c[0],c[1]);});
-      if(wallMode||gateMode||cofferMode)for(var wr=MID;wr<ROWS;wr++)for(var wq=0;wq<COLS;wq++){if(blockedHex(wq,wr)||heroAtHex({q:wq,r:wr}))continue;var wc=center(wq,wr);hexPath(x,wc[0],wc[1],HR-3);x.strokeStyle='#4f9a3a';x.lineWidth=1;x.stroke();}}}
+    if(phase==='prep'&&!tdRoom()){(G.wallPos||[]).forEach(function(w){var c=center(w.q,w.r);drawObs(x,'wall',c[0],c[1]);});if(G.gatePos){var gc=center(G.gatePos.q,G.gatePos.r);drawObs(x,'gate',gc[0]+HWD/2,gc[1]);}(G.cofferPos||[]).forEach(function(w){var c=center(w.q,w.r);drawObs(x,'coffer',c[0],c[1]);});
+      if(!tdRoom()&&(wallMode||gateMode||cofferMode))for(var wr=MID;wr<ROWS;wr++)for(var wq=0;wq<COLS;wq++){if(blockedHex(wq,wr)||heroAtHex({q:wq,r:wr}))continue;var wc=center(wq,wr);hexPath(x,wc[0],wc[1],HR-3);x.strokeStyle='#4f9a3a';x.lineWidth=1;x.stroke();}}}
   if(phase==='prep'&&G){
     var pcl=G.enc&&G.enc.room&&roomInfo(G.enc.room).cells;if(pcl)pcl.forEach(function(c){if(c.r>=MID){var cc=center(c.q,c.r);hexPath(x,cc[0],cc[1],HR-2);x.strokeStyle='#d8a020';x.lineWidth=2;x.stroke();}});
-    if(drag&&drag.on){for(var r=MID;r<ROWS;r++)for(var q=0;q<COLS;q++){var c=center(q,r);hexPath(x,c[0],c[1],HR-2);x.strokeStyle=(drag.hov&&drag.hov.q===q&&drag.hov.r===r)?'#2f7a1f':'#3d7a2888';x.lineWidth=1;x.stroke();}}
+    if(drag&&drag.on){for(var r=(tdRoom()?0:MID);r<ROWS;r++)for(var q=0;q<COLS;q++){if(tdRoom()&&blockedHex(q,r))continue;var c=center(q,r);hexPath(x,c[0],c[1],HR-2);x.strokeStyle=(drag.hov&&drag.hov.q===q&&drag.hov.r===r)?'#2f7a1f':'#3d7a2888';x.lineWidth=1;x.stroke();}}
     var list=prepFoes.concat(onBoard().map(function(h){var sig=h.hid+h.lv+h.items.join()+h.perks.join()+h.path,u=VU[h.uid];if(!u||u.sig!==sig){var old=u;u=heroUnit(h,0,h.pos.q,h.pos.r,G.relics);u.id=1000+h.uid;u.sig=sig;if(old){u.rx=old.rx;u.ry=old.ry;}VU[h.uid]=u;}u.q=h.pos.q;u.r=h.pos.r;return u;}));
     list.sort(function(a,b){return a.r-b.r||a.q-b.q;}).forEach(function(u){if(drag&&drag.on&&u.ref===drag.uid)return;drawUnit(x,u,now,true);});
   }else if((phase==='fight'||phase==='result'||phase==='over')&&S){
@@ -2112,7 +2184,7 @@ function onBoardDown(e){if(!G||phase!=='prep'||dlgOpen)return;var p=boardPoint(e
   var h=heroAtHex(hx);if(h){drag={uid:h.uid,from:'board',x0:e.clientX,y0:e.clientY,on:false,id:e.pointerId};e.preventDefault();}
   else drag={tap:hx,x0:e.clientX,y0:e.clientY,on:false,id:e.pointerId};}
 function onBenchDown(e){if(!G||phase!=='prep')return;var s=e.target.closest('.slot');if(!s||!s.dataset.uid)return;drag={uid:+s.dataset.uid,from:'bench',x0:e.clientX,y0:e.clientY,on:false,id:e.pointerId};}
-function dropTarget(e){var p=boardPoint(e),hx=hexAt(p[0],p[1]);if(hx&&hx.r>=MID)return {kind:'hex',h:hx};
+function dropTarget(e){var p=boardPoint(e),hx=hexAt(p[0],p[1]);if(hx&&homeRow(hx.r))return {kind:'hex',h:hx};
   var t=document.elementFromPoint(e.clientX,e.clientY);if(t&&t.closest&&t.closest('#reserve'))return {kind:'bench'};return null;}
 function onMove(e){if(!drag||drag.id!==e.pointerId||!drag.uid)return;
   if(!drag.on){if(Math.abs(e.clientX-drag.x0)+Math.abs(e.clientY-drag.y0)<7)return;var h=heroByUid(drag.uid);if(!h){drag=null;return;}
@@ -2133,7 +2205,7 @@ function onUp(e){if(!drag||drag.id!==e.pointerId)return;var d=drag;drag=null;poi
   /* tap */
   if(d.uid){wallMode=gateMode=cofferMode=false;var h=heroByUid(d.uid);if(sel&&sel!==d.uid&&d.from==='board'){placeHero(heroByUid(sel),{kind:'hex',h:h.pos});sel=null;return;}
     if(sel===d.uid){sel=null;}else{sel=d.uid;}view={kind:'party',uid:d.uid};renderAll();return;}
-  if(d.tap){var hx=d.tap;if(hx.r<MID){var f=prepFoes.filter(function(u){return u.q===hx.q&&u.r===hx.r;})[0];if(f){view={kind:'foe',u:f};sel=null;renderAll();}return;}
+  if(d.tap){var hx=d.tap;if(!homeRow(hx.r)){var f=prepFoes.filter(function(u){return u.q===hx.q&&u.r===hx.r;})[0];if(f){view={kind:'foe',u:f};sel=null;renderAll();}return;}
     if(sel){placeHero(heroByUid(sel),{kind:'hex',h:hx});sel=null;renderAll();return;}
     /* walls: tap your wall to pick it up; in wall mode, tap an empty hex to build one */
     if(cofferAt(hx.q,hx.r)){if(G.stash.length>=STASH)return toast('Your item bench is full. Make room to pick the chest up.');G.cofferPos=G.cofferPos.filter(function(w){return !(w.q===hx.q&&w.r===hx.r);});G.stash.push('chest');cofferMode=true;wallMode=false;gateMode=false;save();renderAll();return;}
@@ -2159,7 +2231,7 @@ function boot(){
   showTitle();requestAnimationFrame(loop);connectCloud();
 }
 boot();
-window.__dd={ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
+window.__dd={startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
   startRun:startRun,undoBuy:undoBuy,nextFight:nextFight,enterPrep:enterPrep,startFight:startFight,skipFight:skipFight,endFight:endFight,buy:buy,reroll:reroll,sellHero:sellHero,
   closeDialog:closeDialog,showTitle:showTitle,genEncounter:genEncounter,placeHero:placeHero,afterChange:afterChange,boardCap:boardCap,onBoard:onBoard,inReserve:inReserve,
   showEventK:function(k,done){var e=EVENTS.filter(function(x){return x.k===k;})[0];var o=EVENTS;EVENTS=[e];showEvent(done);EVENTS=o;},TUNE:TUNE,HEROES:HEROES,PERKS:PERKS,ITEM_KEYS:ITEM_KEYS,RELIC_KEYS:RELIC_KEYS,HERO_KEYS:HERO_KEYS,genBoss:genBoss,ITEMS:ITEMS,RELICS:RELICS,heroUnit:heroUnit,mkSim:mkSim,simStep:simStep,foeUnits:foeUnits,themeCounts:themeCounts,foeThemes:foeThemes};
