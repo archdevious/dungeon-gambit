@@ -1501,7 +1501,7 @@ var ROOMS={
 var REG_ROOMS=['river','ruins','forest','chasm','crypt','snow','swamp','arena','canyon','mage','barricade','prison'],BOSS_ROOMS=['shrine','lava','throne'];
 /* ---------- bonus rounds: tower defense. Foes walk a track to the exit; heroes stand still on open ground. ---------- */
 RDECO.z='path';
-ROOMS.tdA={n:'Bonus: Dungeon',pal:'crypt',td:1,trk:'#7d746c',spd:12,hpm:1.2,m:["zzzzzzp", ".....z.", "zzz...z", "zpzp.pz", "z.zzzzz", "zp...p.", ".zzzzzz", "p.....p"],paths:[[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[5,1],[6,2],[6,3],[6,4],[5,4],[4,4],[3,4],[2,4],[2,3],[2,2],[1,2],[0,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6]]],note:'A winding dungeon corridor.'};
+ROOMS.tdA={n:'Bonus: Dungeon',pal:'crypt',td:1,trk:'#7d746c',spd:12,m:["zzzzzzp", ".....z.", "zzz...z", "zpzp.pz", "z.zzzzz", "zp...p.", ".zzzzzz", "p.....p"],paths:[[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[5,1],[6,2],[6,3],[6,4],[5,4],[4,4],[3,4],[2,4],[2,3],[2,2],[1,2],[0,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6]]],note:'A winding dungeon corridor.'};
 ROOMS.tdB={n:'Bonus: Forest',pal:'grass',td:1,trk:'#9a7a50',spd:12,m:["zzzz..t", "t..z..t", ".zzzzz.", "z....z.", "zttt..z", "z...t.z", ".zzzzzz", "tt.z.t."],paths:[[[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[2,2],[1,2],[0,3],[0,4],[0,5],[1,6],[2,6],[3,6],[3,7]],[[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[4,2],[5,2],[5,3],[6,4],[6,5],[6,6],[5,6],[4,6],[3,6],[3,7]]],note:'The path splits, then comes back together.'};
 ROOMS.tdC={n:'Bonus: Snowfield',pal:'snow',td:1,trk:'#8d98a8',spd:12,m:["zzz..nz", "..zn.nz", "zzz.zzz", "z...z..", ".zz.z.n", "n.zz.n.", ".n.z...", "nn.zzzz"],paths:[[[0,0],[1,0],[2,0],[2,1],[2,2],[1,2],[0,2],[0,3],[1,4],[2,4],[2,5],[3,6],[3,7],[4,7],[5,7],[6,7]],[[6,0],[6,1],[6,2],[5,2],[4,2],[4,3],[4,4],[3,5],[2,5],[3,6],[3,7],[4,7],[5,7],[6,7]]],note:'Two roads from the north join near the end.'};
 var TD_ROOMS=['tdA','tdB','tdC'];
@@ -1520,7 +1520,7 @@ function roomBlocked(k){var o={};roomInfo(k).obs.forEach(function(b){o[b.q+','+b
 var $=function(id){return document.getElementById(id);};
 function el(t,c,h){var e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-var TUNE={m:2.4,acts:[.8,2.3,4.05],step:.07,budget:1,main:1.18,r0:.76,r1:.05,boss:[2.0,2.7,4.2],gold:[5,0,0,5,5],bossGold:[10,15,20],td:{hp0:[295,585,1130],g1:.12,g2:.006,gap0:20,gapMin:9,gapDec:.35}};
+var TUNE={m:2.4,acts:[.8,2.3,4.05],step:.07,budget:1,main:1.18,r0:.76,r1:.05,boss:[2.0,2.7,4.2],gold:[5,0,0,5,5],bossGold:[10,15,20],td:{hp0:[610,980,1340],g1:.12,g2:.006,gap0:20,gapMin:9,gapDec:.35}};
 var G=null,S=null,phase='menu',speed=1,view=null,fightAcc=0,lastT=0,sel=null,fightUnits=[],prepFoes=[],fx={proj:[],rings:[],txt:[],parts:[]},shakeUntil=0;
 try{speed=parseInt(localStorage.getItem('dd1_speed')||'1',10)||1;}catch(e){}
 var META={bestAct:0,bestStep:0,wins:0,runs:0};
@@ -1561,7 +1561,7 @@ function buildBoardBG(){
 }
 /* ---------- run state ---------- */
 function newRunState(a){var mh=100;return {asc:a||0,maxHp:mh,act:1,step:1,hp:mh-(a>=10?25:0),gold:12+3*upg('chest'),party:[],stash:upg('freewall')?['wall']:[],relics:[],shop:[],ls:true,uid:1,enc:null,opts:null,stats:{wins:0,losses:0,bosses:0},phase:'start'};}
-function boardCap(){return Math.min(6,2+G.act);}
+function boardCap(){return Math.min(6,2+G.act+(G.enc&&G.enc.td?1:0));} /* the bonus round already has next act's extra slot */
 function onBoard(){return G.party.filter(function(h){return h.pos;});}
 function inReserve(){return G.party.filter(function(h){return !h.pos;});}
 function heroByUid(u){return G.party.filter(function(h){return h.uid===u;})[0];}
@@ -1705,9 +1705,8 @@ function nextFight(){
   enterPrep();
   if(G.step===STEPS)toast((G.act>ACTS?'Deep ':'Act ')+G.act+' boss: '+G.enc.name);
 }
-function genBonus(){var seen=G.tdSeen||[],k;if(G.act===1)seen=[];
-  if(G.act===1)k='tdA';else{var left=TD_ROOMS.filter(function(x){return x!=='tdA'&&seen.indexOf(x)<0;});if(!left.length)left=['tdB','tdC'];k=left[Math.floor(rnd()*left.length)];}
-  G.tdSeen=seen.concat([k]);return {diff:'bonus',td:true,name:'Bonus round',room:k,foes:[],obs:roomInfo(k).obs.slice(),reward:{gold:0}};}
+function genBonus(){var k=['tdA','tdB','tdC'][Math.min(G.act,ACTS)-1]; /* easiest first, toughest last */
+  return {diff:'bonus',td:true,name:'Bonus round',room:k,foes:[],obs:roomInfo(k).obs.slice(),reward:{gold:0}};}
 function startBonus(){G.enc=genBonus();G.opts=null;G.rr=0;enterPrep();toast('Bonus round: stop the foes. 1 gold for every kill.');}
 function tdParams(){var R=ROOMS[G.enc.room],a=Math.min(G.act,ACTS),T=TUNE.td;
   return {paths:R.paths,spd:R.spd,hp0:T.hp0[a-1]*(R.hpm||1)*(G.act>ACTS?deepMult(G.act):1),g1:T.g1,g2:T.g2,gap0:T.gap0,gapMin:T.gapMin,gapDec:T.gapDec,maxLeaks:5};}
