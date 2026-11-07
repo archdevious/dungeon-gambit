@@ -90,7 +90,7 @@ img[src$="#g"]{image-rendering:auto!important}
 .btn.go{background:#6a3f14;box-shadow:0 0 0 2px #4a2a0a,inset 0 -3px 0 #00000055;color:#ffe9b0;font-size:12px;padding:12px 22px}
 .btn.on{box-shadow:0 0 0 2px var(--gold);color:var(--gold)}
 .btn.red{box-shadow:0 0 0 2px var(--foe);color:var(--foe)}
-.reserve{display:flex;gap:8px;align-items:center;justify-content:center;width:min(100%,560px)}
+.reserve{display:flex;gap:8px;align-items:center;justify-content:flex-start;width:100%}#benchPanel{display:flex;flex-direction:column;gap:8px;padding:10px 12px}.reserve .lbl{min-width:44px}
 .reserve .lbl{font-family:var(--px);font-size:9px;color:var(--muted)}
 .slot{width:56px;height:56px;background:var(--panel);box-shadow:0 0 0 2px var(--edge);display:grid;place-items:center;position:relative;touch-action:none}
 .slot img{width:52px;height:52px;image-rendering:pixelated}
@@ -184,7 +184,7 @@ img[src$="#g"]{image-rendering:auto!important}
 .ghost{position:fixed;width:64px;height:64px;pointer-events:none;z-index:50;transform:translate(-50%,-62%);image-rendering:pixelated;filter:drop-shadow(0 4px 0 #00000080)}
 @media(max-width:999px){
   .stage{display:contents}
-  .app>.top{order:0}.center{order:1}.market{order:2}.rightcol{display:contents}#detail{order:3}#leftCol{order:4}#relicPanel{order:5}
+  .app>.top{order:0}.center{order:1}.market{order:2}.rightcol{display:contents}#benchPanel{order:1}#detail{order:3}#leftCol{order:4}#relicPanel{order:5}
   .link{width:5px}.node{width:24px;height:24px}.node img{width:18px;height:18px}.path{order:3;flex-basis:100%;justify-content:flex-start}
   .top{gap:10px}.logo{font-size:15px}
 }
@@ -226,7 +226,7 @@ button.btn,.market button,.hb{border-radius:6px}
 
 .foeline{background:linear-gradient(180deg,#f7ecd3,#eadbb8);border-radius:8px;box-shadow:0 0 0 2px #5b3f22,0 0 0 3px #c9a15a,0 4px 10px #0007;padding:6px 14px;min-height:0;color:var(--fg);display:inline-block;align-self:center;max-width:min(100%,560px)}
 .foeline:empty{display:none}
-.reserve .lbl,.stashrow .lbl,#stash .lbl{color:#d8c8a0}.hint{color:#e8dcc0}.pp .hint,.market .hint,.ov .hint{color:var(--muted)}
+.reserve .lbl{color:var(--muted)}.hint{color:#e8dcc0}.pp .hint,.market .hint,.ov .hint{color:var(--muted)}
 </style>
 
 <div class="app" id="app">
@@ -251,12 +251,11 @@ button.btn,.market button,.hb{border-radius:6px}
       <div class="bossbar pp" id="bossBar" hidden></div>
       <div class="boardwrap" id="boardWrap"><canvas id="board" width="202" height="204"></canvas><canvas id="fxText"></canvas></div>
       <div class="ctrl" id="ctrl"></div>
-      <div class="reserve" id="reserve"></div>
-      <div class="reserve" id="ibench"></div>
     </section>
     <div class="rightcol">
       <aside class="side pp detail" id="detail"></aside>
       <aside class="side pp" id="relicPanel"><div class="h" id="relicH">RELICS <span></span></div><div class="relics" id="relics"></div></aside>
+      <aside class="side pp" id="benchPanel"><div class="reserve" id="reserve"></div><div class="reserve" id="ibench"></div></aside>
     </div>
   </main>
   <section class="market pp" id="market"></section>
@@ -1770,7 +1769,7 @@ function buy(i){if(busy())return;
   if(phase!=='prep')return;var o=G.shop[i];if(!o||o.sold)return;var p=priceOf(o);if(G.gold<p)return toast('Not enough gold');o.paid=p;
   if(o.type==='hero'){var h=owned(o.key);
     if(h){if(h.lv>=MAXLV)return toast(HEROES[o.key].n+' is already max level');G.gold-=p;o.sold=true;o.undo={kind:'lv',uid:h.uid,perks:h.perks.slice(),path:h.path};h.lv++;afterChange();levelUp(h,function(){afterChange();});return;}
-    if(onBoard().length>=boardCap()&&inReserve().length>=4)return toast('No room. Sell a hero first.');
+    if(onBoard().length>=boardCap()&&inReserve().length>=BENCHN)return toast('No room. Sell a hero first.');
     G.gold-=p;o.sold=true;var nh=addHero(o.key);o.undo={kind:'new',uid:nh.uid};view={kind:'party',uid:nh.uid};afterChange();toast(HEROES[o.key].n+' joins your party');return;}
   if(o.type==='item'){var upg0=autoUpgrade(o.key);if(upg0){G.gold-=p;o.sold=true;o.undo={kind:'item',swap:upg0};afterChange();return;}
     var room=G.party.slice();
@@ -1826,7 +1825,7 @@ function levelUp(h,done){
 /* ---------- flow ---------- */
 function startRun(){chooseAscension(function(a){chooseCommander(function(c){startRunAt(a,c);});});}
 function startRunAt(a,c){
-  G=newRunState(a);G.cmd=c||null;if(c==='bree')G.gold+=6;META.runs++;saveMeta();STASH=6;
+  G=newRunState(a);G.cmd=c||null;if(c==='bree')G.gold+=6;META.runs++;saveMeta();STASH=3;
   if(upg('heir')){var hr=relicPool();G.relics.push(pick(hr));}
   var t12=heroPool().sort(function(){return rnd()-.5;}).slice(0,3+upg('scout'));
   phase='start';renderAll();
@@ -1971,21 +1970,6 @@ function damageReport(){
     h+='<div class="sgrid"><span>'+EIC(x[0])+x[1]+'</span>'+[a,b].map(function(v,ix){var T=ix?tB:tA;
       return '<span class="sbar"><i style="width:'+(v/mxS*100)+'%;background:'+x[2]+'"></i><b>'+R(v)+(T&&v?' <small>'+R(v/T*100)+'%</small>':'')+'</b></span>';}).join('')+'</div>';});
   h+='<div class="sgrid stot"><span>Total</span><span>'+R(tA)+'</span><span>'+R(tB)+'</span></div>';
-  /* status effects */
-  var ST=[['burn','Burn'],['frost','Frost'],['poison','Poison'],['bleed','Bleed']],rows='';
-  ST.forEach(function(x){var a=A.ap[x[0]]||0,b=B.ap[x[0]]||0;if(!a&&!b)return;
-    var d=x[0]==='frost'?'':' · did '+R(A.dm[x[0]]||0)+' dmg';
-    rows+='<div class="sgrid"><span>'+x[1]+'</span><span>'+R(a)+' stacks'+(a?d:'')+'</span><span>'+R(b)+' stacks'+(b&&x[0]!=='frost'?' · did '+R(B.dm[x[0]]||0)+' dmg':'')+'</span></div>';});
-  if(A.frz||B.frz)rows+='<div class="sgrid"><span>Freezes</span><span>'+A.frz+'</span><span>'+B.frz+'</span></div>';
-  if(A.spread||B.spread)rows+='<div class="sgrid"><span>Burn spread</span><span>'+A.spread+' ignited</span><span>'+B.spread+' ignited</span></div>';
-  if(rows)h+='<div class="h">STATUS EFFECTS</div><div class="sgrid sh"><span>applied to the enemy</span><span>YOURS</span><span>FOES</span></div>'+rows;
-  /* other */
-  var heal=0;S.units.forEach(function(u){if(u.team===0)heal+=u.healed;});var healB=0;S.units.forEach(function(u){if(u.team===1)healB+=u.healed;});
-  h+='<div class="h">THE FIGHT</div>'
-   +'<div class="sgrid"><span>Kills</span><span>'+A.kills+'</span><span>'+B.kills+'</span></div>'
-   +'<div class="sgrid"><span>Healing</span><span>'+R(heal)+'</span><span>'+R(healB)+'</span></div>'
-   +'<div class="sgrid"><span>Blocked by shields</span><span>'+R(B.blk)+'</span><span>'+R(A.blk)+'</span></div>'
-   +'<div class="sgrid"><span>Length</span><span>'+R(S.tick/10)+'s</span><span></span></div>';
   /* per hero */
   var mx=Math.max(1,U[0]?dt(U[0])+U[0].healed:1);
   h+='<div class="h">WHO DID THE WORK</div>'+U.map(function(u){var v=R(dt(u)),hh=R(u.healed),dk=u.dk||{};
@@ -2035,7 +2019,7 @@ function chooseHeroFor(title,desc,heroes,fn,cancel,toStash,sell,benchFree){var i
   if(sell)ch.push({html:'<div class="row"><img src="'+glyphURL('coin',3)+'" alt=""></div><b>Sell for '+sell.v+' gold</b><small>75% of its price.</small>',cls:'sellc',fn:function(){sell.fn();}});
   dialog('<h2>'+esc(title)+'</h2><p class="muted">'+esc(desc)+'</p>',ch,!cancel,false,title);
 }
-var STASH=6,wallMode=false,gateMode=false,cofferMode=false;
+var BENCHN=2,STASH=3,wallMode=false,gateMode=false,cofferMode=false;
 /* a wall waiting on the item bench: build it (it joins your walls for the run) or sell it */
 function benchWall(i){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('You can build walls between fights');if(busy())return;if(wallMode){wallMode=false;renderAll();return;}
   dialog('<h2>Wall</h2><p>Build it and it blocks foes until smashed, rebuilt after every fight. Or sell it.</p>',[
@@ -2132,7 +2116,7 @@ function showGuide(back){
    '<div><b>Health</b><span>Losing costs health. At 0 the run ends.</span></div>'+
    '<div><b>Camp</b><span>Runs earn Renown for upgrades, unlocks and harder Ascension levels.</span></div>'+
    '</div>',[{html:'<b>Back</b>',fn:function(){back();}}],true,true);}
-function resumeRun(){closeDialog();G.stash=G.stash||[];G.maxHp=G.maxHp||100;G.asc=G.asc||0;G.stats.bosses=G.stats.bosses||0;STASH=6;if(G.enc){enterPrep();}else{nextFight();}}
+function resumeRun(){closeDialog();G.stash=G.stash||[];G.maxHp=G.maxHp||100;G.asc=G.asc||0;G.stats.bosses=G.stats.bosses||0;STASH=3;if(G.enc){enterPrep();}else{nextFight();}}
 /* ---------- save ---------- */
 var saveTimer=null,dbRef=null;
 function save(){if(!G||phase==='over')return;try{G.savedAt=Date.now();localStorage.setItem('dd1_save',JSON.stringify(G));}catch(e){}clearTimeout(saveTimer);saveTimer=setTimeout(pushCloud,1500);}
@@ -2189,19 +2173,17 @@ function renderBossBar(){var b=$('bossBar');var u=null;
   if(!u){b.hidden=true;return;}b.hidden=false;var hp=Math.max(0,Math.round(u.hp));
   b.innerHTML='<div class="bt"><span>'+esc(u.name.toUpperCase())+'</span><span>'+hp+' / '+Math.round(u.mhp)+'</span></div><div class="bb"><i style="width:'+(hp/u.mhp*100)+'%"></i></div>';}
 function renderCtrl(){var c=$('ctrl');c.innerHTML='';if(!G)return;
-  if(phase==='prep'){var f=el('button','btn go','FIGHT ▶');f.type='button';f.onclick=startFight;c.appendChild(f);
-  }
   if(phase==='fight'){[1,2,4].forEach(function(n){var b=el('button','btn'+(speed===n?' on':''),n+'×');b.type='button';b.onclick=function(){speed=n;try{localStorage.setItem('dd1_speed',n);}catch(e){}renderCtrl();};c.appendChild(b);});}
 }
 function renderStash(){var r=$('ibench');r.innerHTML='';if(!G)return;r.appendChild(el('span','lbl','ITEMS'));
-  for(var i=0;i<STASH;i++){var k=G.stash[i],s=el('button','slot islot');s.type='button';
+  for(var i=0;i<Math.max(STASH,G.stash.length);i++){var k=G.stash[i],s=el('button','slot islot');s.type='button';
     if(k==='gate'){s.innerHTML='<img src="'+obsCanvas('gate').toDataURL()+'" alt="Gate" style="width:86%;height:auto;object-fit:contain">';s.title='Gate: tap to place it or sell it for '+GATE_SELL+' gold';(function(i){s.onclick=function(){benchGate(i);};})(i);}
     else if(k==='wall'){s.innerHTML='<img src="'+obsCanvas('wall').toDataURL()+'" alt="Wall" style="width:72%;height:auto;object-fit:contain">';s.title='Wall: tap to build it or sell it for '+WALL_SELL+' gold';(function(i){s.onclick=function(){benchWall(i);};})(i);}
     else if(k==='chest'){s.innerHTML='<img src="'+chestURL()+'" alt="Treasure Chest" style="width:72%;height:auto;object-fit:contain">';s.title='Treasure Chest: place it on your side. If it survives and you win, it pays '+chestGold()+' gold. Tap to place.';s.onclick=function(){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('Place chests between fights');if(cofferMode){cofferMode=false;renderAll();return;}cofferMode=true;wallMode=false;gateMode=false;sel=null;toast('Tap an empty hex on your side to place the chest');renderAll();};}
     else if(k){s.classList.add('tier'+itemDef(k).t);s.innerHTML='<img src="'+glyphURL(itemDef(k).g,3,itemDef(k).t)+'" alt="'+esc(itemDef(k).n)+'">';s.title=itemDef(k).n+': '+itemDef(k).d+' (tap to give to a hero or sell)';(function(i){s.onclick=function(){stashClick(i);};})(i);}
     else s.disabled=true;r.appendChild(s);}}
 function renderReserve(){renderStash();var r=$('reserve');r.innerHTML='';if(!G)return;r.appendChild(el('span','lbl','BENCH'));
-  var res=inReserve();for(var i=0;i<4;i++){var h=res[i],s=el('button','slot'+(h&&sel===h.uid?' sel':''));s.type='button';s.dataset.i=i;
+  var res=inReserve();for(var i=0;i<Math.max(BENCHN,res.length);i++){var h=res[i],s=el('button','slot'+(h&&sel===h.uid?' sel':''));s.type='button';s.dataset.i=i;
     if(h){s.innerHTML='<img src="'+heroSprite(h)+'" alt="'+esc(HEROES[h.hid].n)+'"><span class="lv">'+h.lv+'</span>';s.dataset.uid=h.uid;}
     r.appendChild(s);}}
 function renderMarket(){var m=$('market');m.innerHTML='';if(!G||phase==='menu'){m.hidden=true;return;}m.hidden=false;m.classList.toggle('frozen',!!G.frozen);
@@ -2221,7 +2203,7 @@ function renderMarket(){var m=$('market');m.innerHTML='';if(!G||phase==='menu'){
   var side=el('div','mside');side.appendChild(el('div','h','MARKET <span>'+G.gold+' gold</span>'));
   var rr=el('button','btn','REROLL · '+rerollCost()+'g');rr.type='button';rr.disabled=phase!=='prep'||G.gold<rerollCost();rr.onclick=reroll;side.appendChild(rr);
   var fz=el('button','btn'+(G.frozen?' frozen':''),G.frozen?'FROZEN ✓':'FREEZE');fz.type='button';fz.disabled=phase!=='prep';fz.title=G.frozen?'Tap to unfreeze. Rerolling also unfreezes.':'Keep this market for after the next fight (one fight only)';fz.onclick=toggleFreeze;side.appendChild(fz);
-  var gd=el('button','btn','HOW TO PLAY');gd.type='button';gd.onclick=function(){showGuide(closeDialog);};side.appendChild(gd);
+  var gd=el('button','btn go','FIGHT ▶');gd.type='button';gd.disabled=phase!=='prep';gd.onclick=startFight;side.appendChild(gd);
   m.appendChild(side);}
 function statBlock(u){return '<div class="nums"><span><em>Health</em>'+Math.round(u.mhp)+'</span><span><em>Attack</em>'+Math.round(u.atk)+'</span><span><em>Armor</em>'+Math.round(u.arm)+'</span><span><em>Range</em>'+(u.rng<=1?'Melee':u.rng)+'</span><span><em>Speed</em>'+u.as.toFixed(2)+'/s</span><span><em>Mana</em>'+(u.mmax?Math.round(u.mana)+'/'+u.mmax:'—')+'</span>'+(u.thorns?'<span><em>Thorns</em>'+Math.round(u.thorns)+'</span>':'')+(u.leech?'<span><em>Lifeleech</em>'+Math.round(u.leech*100)+'%</span>':'')+'</div>';}
 function renderDetail(){var d=$('detail');d.innerHTML='';
@@ -2373,7 +2355,7 @@ function onMove(e){if(!drag||drag.id!==e.pointerId||!drag.uid)return;
   var t=dropTarget(e);drag.hov=t&&t.kind==='hex'?t.h:null;
   document.querySelectorAll('.slot.hov').forEach(function(s){s.classList.remove('hov');});if(t&&t.kind==='bench')document.querySelectorAll('#reserve .slot').forEach(function(s){if(!s.dataset.uid)s.classList.add('hov');});}
 function placeHero(h,target){
-  if(target.kind==='bench'){if(!h.pos)return;if(inReserve().length>=4)return toast('The bench is full');h.pos=null;afterChange();return;}
+  if(target.kind==='bench'){if(!h.pos)return;if(inReserve().length>=BENCHN)return toast('The bench is full');h.pos=null;afterChange();return;}
   if(blockedHex(target.h.q,target.h.r))return toast(wallAt(target.h.q,target.h.r)?'Your wall is there. Tap it to remove it first.':'Something is in the way');
   var other=heroAtHex(target.h);
   if(!h.pos&&!other&&onBoard().length>=boardCap())return toast('Only '+boardCap()+' heroes fit on the board this act. Swap one out.');
