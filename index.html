@@ -153,9 +153,9 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .choice.easy{box-shadow:0 0 0 2px #5bbf4a}.choice.hard{box-shadow:0 0 0 2px #ffb347}.choice.deadly{box-shadow:0 0 0 2px var(--foe)}.choice.boss{box-shadow:0 0 0 2px var(--gold)}
 .choice small{color:var(--muted);font-size:17px}
 .choice .big{width:96px!important;height:96px!important}
-.dmgrow{display:grid;grid-template-columns:120px 1fr 90px;gap:8px;align-items:center;font-size:17px}
-.dmgrow{margin-top:14px}.dmgrow i{height:8px;display:block}.dmgbar{display:block;margin-top:4px}.dmglabs{display:flex;height:18px;overflow:visible}.dmglabs em{flex:0 0 auto;min-width:max-content;font-style:normal;font-size:14px;line-height:18px;white-space:nowrap}.dmgseg{display:flex;gap:1px;height:8px}
-.dmgrow span:last-child{text-align:right;color:var(--muted)}
+.dmgrow{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center;font-size:17px}
+.dmgrow{margin-top:14px}.dmgrow i{height:8px;display:block}.dmgbar{display:block;margin-top:4px}.dmglabs{display:flex;height:18px;overflow:visible}.dmglabs em{padding-right:7px;box-sizing:border-box;flex:0 0 auto;min-width:max-content;font-style:normal;font-size:14px;line-height:18px;white-space:nowrap}.dmgseg{display:flex;gap:1px;height:8px}.dmgline{display:flex;align-items:flex-end;gap:10px}.dmgtrack{display:block;flex:0 0 auto;min-width:0}.dmgtot{font-weight:400;color:var(--muted);white-space:nowrap;line-height:8px;font-size:17px}
+
 .dmgsub{font-size:14px;color:var(--muted);margin:-4px 0 2px 0;padding-left:2px}
 .sgrid{display:grid;grid-template-columns:130px 1fr 1fr;gap:8px;align-items:center;font-size:17px}
 .sgrid.sh{font-size:13px;color:var(--muted);letter-spacing:1px}
@@ -1780,10 +1780,12 @@ function damageReport(){
   /* per hero */
   var mx=Math.max(1,U[0]?dt(U[0])+U[0].healed:1);
   h+='<div class="h">WHO DID THE WORK</div>'+U.map(function(u){var v=R(dt(u)),hh=R(u.healed),dk=u.dk||{};
-    var segs='',labs='',pos=0,n2=0;SRC.concat([['heal','Healing','#3fb8a8']]).forEach(function(x){var val=x[0]==='heal'?hh:(dk[x[0]]||0);if(val<1)return;var w=val/mx*100;
+    var parts=[],tot=0;SRC.concat([['heal','Healing','#3fb8a8']]).forEach(function(x){var val=x[0]==='heal'?hh:(dk[x[0]]||0);if(val<1)return;parts.push([x,val]);tot+=val;});
+    var segs='',labs='',tw=Math.round(tot/mx*1000)/1000;
+    parts.forEach(function(pt){var x=pt[0],val=pt[1],w=val/tot*100;
       segs+='<i title="'+x[1].toLowerCase()+' '+R(val)+'" style="width:'+w+'%;background:'+x[2]+'"></i>';
-      labs+='<em style="width:'+w+'%;color:'+x[2]+'">'+R(val)+'</em>';pos+=w;});
-    return '<div class="dmgrow"><span>'+esc(u.name)+'</span><span class="dmgbar"><span class="dmglabs">'+labs+'</span><span class="dmgseg">'+segs+'</span></span><span>'+v+(hh?' · +'+hh:'')+'</span></div>'
+      labs+='<em style="width:'+w+'%;color:'+x[2]+'">'+R(val)+'</em>';});
+    return '<div class="dmgrow"><span>'+esc(u.name)+'</span><span class="dmgbar"><span class="dmgline"><span class="dmgtrack" style="width:calc((100% - 112px)*'+tw+')"><span class="dmglabs">'+labs+'</span><span class="dmgseg">'+segs+'</span></span><b class="dmgtot">'+v+(hh?' · +'+hh:'')+'</b></span></span></div>'
       +'<div class="dmgsub">took '+R(u.taken||0)+(u.hp<=0?' · fell':'')+'</div>';}).join('');
   return h;}
 /* ---------- dialogs ---------- */
