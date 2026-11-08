@@ -1963,6 +1963,8 @@ function buy(i){if(busy())return;
 }
 /* v69: the market card an item on the bench or on a hero was bought from this round (-1 when it was bought earlier) */
 function undoIdxFor(k,huid){if(phase!=='prep')return -1;for(var i=0;i<G.shop.length;i++){var o=G.shop[i],u=o.undo;if(!o.sold||!u||u.kind!=='item')continue;if(u.swap?(u.swap.newKey===k&&u.swap.uid===huid):o.key===k)return i;}return -1;}
+function undoIdxHero(uid){if(phase!=='prep')return -1;var r=-1;for(var i=0;i<G.shop.length;i++){var o=G.shop[i],u=o.undo;if(!o.sold||!u||u.uid!==uid)continue;if(u.kind==='lv')return -1;if(u.kind==='new')r=i;}return r;}
+function undoIdxWall(){if(phase!=='prep')return -1;for(var i=0;i<G.shop.length;i++){var o=G.shop[i];if(o.sold&&o.undo&&o.undo.kind==='build'&&o.key==='wall')return i;}return -1;}
 function undoBuy(i){if(busy())return;
   if(phase!=='prep')return;var o=G.shop[i];if(!o||!o.sold||!o.undo)return;var u=o.undo,p=priceOf(o);
   if(u.kind==='new'){var h=heroByUid(u.uid);if(!h)return toast('That hero is no longer in your party');
@@ -2207,7 +2209,7 @@ var BENCHN=2,STASH=3,wallMode=false,gateMode=false,cofferMode=false;
 function benchWall(i){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('You can build walls between fights');if(busy())return;if(wallMode){wallMode=false;renderAll();return;}
   dialog('<h2>Wall</h2><p>Build it and it blocks foes until smashed, rebuilt after every fight. Or sell it.</p>',[
     {html:'<b>Place it</b><span>Tap an empty hex on your side to build it.</span>',fn:function(){wallMode=true;gateMode=false;cofferMode=false;sel=null;toast('Tap an empty hex on your side to build the wall');afterChange();}},
-    {html:'<b>Sell it</b><span>+'+WALL_SELL+' gold</span>',fn:function(){if(G.stash[i]==='wall')G.stash.splice(i,1);G.gold+=WALL_SELL;toast('Sold the wall for '+WALL_SELL+' gold');afterChange();}},
+    (undoIdxWall()>=0?{html:'<b>Undo purchase</b><span>Full refund: +'+priceOf(G.shop[undoIdxWall()])+' gold</span>',fn:function(){undoBuy(undoIdxWall());}}:{html:'<b>Sell it</b><span>+'+WALL_SELL+' gold</span>',fn:function(){if(G.stash[i]==='wall')G.stash.splice(i,1);G.gold+=WALL_SELL;toast('Sold the wall for '+WALL_SELL+' gold');afterChange();}}),
     {html:'<b>Keep it</b><span>Leave it on the bench.</span>',fn:function(){}}],true);}
 function benchGate(i){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('You can place the gate between fights');if(busy())return;
   if(gateMode){gateMode=false;renderAll();return;}gateMode=true;wallMode=false;cofferMode=false;sel=null;toast('Tap a hex on your side; the gate covers it and the one to its right');afterChange();}
@@ -2410,7 +2412,7 @@ function renderDetail(){var d=$('detail');d.innerHTML='';
           CHI_ITEM=k;chooseHeroFor('Move '+itemDef(k).n+' to',itemDef(k).d,room,function(t){h.items.splice(h.items.indexOf(k),1);t.items.push(k);afterChange();},true,function(){h.items.splice(h.items.indexOf(k),1);G.stash.push(k);afterChange();},{v:itemSellValue(k),u:undoIdxFor(k,h.uid),fn:function(){h.items.splice(h.items.indexOf(k),1);G.gold+=itemSellValue(k);toast('Sold '+itemDef(k).n+' for '+itemSellValue(k)+' gold');afterChange();}});};})(k);}
       its.appendChild(s);}
     d.appendChild(el('div','h','ITEMS <span>'+h.items.length+'/'+itemCap(h)+'</span>'));d.appendChild(its);
-    if(phase==='prep'){var sb=el('button','btn red','SELL · '+sellValue(h)+'g');sb.type='button';sb.onclick=function(){confirmSell(h.uid);};d.appendChild(sb);}
+    if(phase==='prep'){var uh=undoIdxHero(h.uid),sb=el('button','btn red',uh>=0?'UNDO · +'+priceOf(G.shop[uh])+'g':'SELL · '+sellValue(h)+'g');sb.type='button';sb.onclick=function(){if(uh>=0)undoBuy(uh);else confirmSell(h.uid);};d.appendChild(sb);}
     return;}
   if(view.kind==='offer'){var O=HEROES[view.hid],ou=heroUnit({hid:view.hid,lv:1,perks:[],items:[],path:null},0,0,0,[]);
     d.innerHTML='<div class="h">MARKET HERO</div><div class="dhead"><img src="'+spriteURL(O.spr,3)+'" alt=""><span><b>'+esc(O.n)+'</b><small>'+esc(O.role)+'</small>'+themeChips(O.th)+'</span></div>'+statBlock(ou)+
