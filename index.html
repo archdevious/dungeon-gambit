@@ -1369,7 +1369,7 @@ var UPGRADES=[
  {k:'haggle',n:'Haggler',g:'whet',d:'Your first reroll before each fight is free.',cost:[40]},
  {k:'quarter',n:'Quartermaster',g:'sword',d:'Rarer items show up in the market more often.',cost:[30,65]},
  {k:'vet',n:'Veteran',g:'aegis',d:'Your first hero starts at level 2.',cost:[50]},
- {k:'freewall',n:'Stonecutters',g:'mason',d:'Start each run with a free wall on your item bench. Build it, or sell it for '+WALL_SELL+' gold.',cost:[25]},
+ {k:'freewall',n:'Stonecutters',g:'mason',d:'Start each run with a free wall on your item bench.',cost:[25]},
  {k:'tchest',n:'Treasure Chests',g:'coin',d:'Unlocks treasure chests in the market. Place one for a fight: if it survives and you win, it pays double its price. It is used up after that fight.',cost:[50]},
  {k:'gate',n:'Gatehouse',g:'gate',d:'The gate can show up in the market (one at a time). Your heroes walk through it; foes have to smash it.',cost:[75]},
  {k:'heir',n:'Heirloom',g:'crown',d:'Start each run with a random relic.',cost:[100]}
@@ -1964,7 +1964,6 @@ function buy(i){if(busy())return;
 /* v69: the market card an item on the bench or on a hero was bought from this round (-1 when it was bought earlier) */
 function undoIdxFor(k,huid){if(phase!=='prep')return -1;for(var i=0;i<G.shop.length;i++){var o=G.shop[i],u=o.undo;if(!o.sold||!u||u.kind!=='item')continue;if(u.swap?(u.swap.newKey===k&&u.swap.uid===huid):o.key===k)return i;}return -1;}
 function undoIdxHero(uid){if(phase!=='prep')return -1;var r=-1;for(var i=0;i<G.shop.length;i++){var o=G.shop[i],u=o.undo;if(!o.sold||!u||u.uid!==uid)continue;if(u.kind==='lv')return -1;if(u.kind==='new')r=i;}return r;}
-function undoIdxWall(){if(phase!=='prep')return -1;for(var i=0;i<G.shop.length;i++){var o=G.shop[i];if(o.sold&&o.undo&&o.undo.kind==='build'&&o.key==='wall')return i;}return -1;}
 function undoBuy(i){if(busy())return;
   if(phase!=='prep')return;var o=G.shop[i];if(!o||!o.sold||!o.undo)return;var u=o.undo,p=priceOf(o);
   if(u.kind==='new'){var h=heroByUid(u.uid);if(!h)return toast('That hero is no longer in your party');
@@ -1977,9 +1976,9 @@ function undoBuy(i){if(busy())return;
     sh.items[ni]=sw.old;}
   else if(u.kind==='item'){var where=null;G.party.forEach(function(x){if(!where&&x.items.indexOf(o.key)>=0)where=x;});
     if(where)where.items.splice(where.items.lastIndexOf(o.key),1);else{var si=G.stash.lastIndexOf(o.key);if(si<0)return toast('That item is gone');G.stash.splice(si,1);}}
-  else if(u.kind==='build'&&o.key==='wall'){var wi=G.stash.indexOf('wall');if(wi<0)return toast('Pick that wall up off the board first');G.stash.splice(wi,1);}
-  else if(u.kind==='build'&&o.key==='gate'){var gi=G.stash.indexOf('gate');if(gi<0)return toast('Pick the gate up off the board first');G.stash.splice(gi,1);}
-  else if(u.kind==='build'){var ci=G.stash.indexOf('chest');if(ci<0)return toast('Pick the chest up off the board first');G.stash.splice(ci,1);}
+  else if(u.kind==='build'&&o.key==='wall'){var wi=G.stash.indexOf('wall');if(wi>=0)G.stash.splice(wi,1);else if(G.wallPos&&G.wallPos.length)G.wallPos.pop();else return toast('That wall is gone');wallMode=false;}
+  else if(u.kind==='build'&&o.key==='gate'){var gi=G.stash.indexOf('gate');if(gi>=0)G.stash.splice(gi,1);else if(G.gatePos)G.gatePos=null;else return toast('That gate is gone');gateMode=false;}
+  else if(u.kind==='build'){var ci=G.stash.indexOf('chest');if(ci>=0)G.stash.splice(ci,1);else if(G.cofferPos&&G.cofferPos.length)G.cofferPos.pop();else return toast('That chest is gone');cofferMode=false;}
   else if(u.kind==='relic'&&u.base){if(u.prev>1)G.rlv[u.base]=u.prev;else delete G.rlv[u.base];}
   else if(u.kind==='relic'){var ri=G.relics.indexOf(o.key);if(ri>=0)G.relics.splice(ri,1);}
   G.gold+=p;o.sold=false;o.undo=null;o.paid=undefined;toast('Purchase undone: +'+p+' gold');afterChange();}
@@ -2205,12 +2204,9 @@ function chooseHeroFor(title,desc,heroes,fn,cancel,toStash,sell,benchFree){var i
   dialog('<h2>'+esc(title)+'</h2><p class="muted">'+esc(desc)+'</p>',ch,!cancel,false,title);
 }
 var BENCHN=2,STASH=3,wallMode=false,gateMode=false,cofferMode=false;
-/* a wall waiting on the item bench: build it (it joins your walls for the run) or sell it */
-function benchWall(i){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('You can build walls between fights');if(busy())return;if(wallMode){wallMode=false;renderAll();return;}
-  dialog('<h2>Wall</h2><p>Build it and it blocks foes until smashed, rebuilt after every fight. Or sell it.</p>',[
-    {html:'<b>Place it</b><span>Tap an empty hex on your side to build it.</span>',fn:function(){wallMode=true;gateMode=false;cofferMode=false;sel=null;toast('Tap an empty hex on your side to build the wall');afterChange();}},
-    (undoIdxWall()>=0?{html:'<b>Undo purchase</b><span>Full refund: +'+priceOf(G.shop[undoIdxWall()])+' gold</span>',fn:function(){undoBuy(undoIdxWall());}}:{html:'<b>Sell it</b><span>+'+WALL_SELL+' gold</span>',fn:function(){if(G.stash[i]==='wall')G.stash.splice(i,1);G.gold+=WALL_SELL;toast('Sold the wall for '+WALL_SELL+' gold');afterChange();}}),
-    {html:'<b>Keep it</b><span>Leave it on the bench.</span>',fn:function(){}}],true);}
+/* a wall waiting on the item bench: tap it to build it, same as the gate */
+function benchWall(i){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('You can build walls between fights');if(busy())return;
+  if(wallMode){wallMode=false;renderAll();return;}wallMode=true;gateMode=false;cofferMode=false;sel=null;toast('Tap an empty hex on your side to build the wall');afterChange();}
 function benchGate(i){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('You can place the gate between fights');if(busy())return;
   if(gateMode){gateMode=false;renderAll();return;}gateMode=true;wallMode=false;cofferMode=false;sel=null;toast('Tap a hex on your side; the gate covers it and the one to its right');afterChange();}
 function stashClick(i){if(phase!=='prep')return toast('You can hand out items between fights');if(busy())return;wallMode=gateMode=cofferMode=false;var k=G.stash[i];if(!k)return;
@@ -2361,8 +2357,8 @@ function renderBossBar(){var b=$('bossBar');var u=null;
 function renderCtrl(){var sb=$('sndBtn');if(sb)sb.textContent=SFX.label();var b=$('speedBtn');if(b){b.textContent=speed+'×';b.hidden=!G;}}
 function renderStash(){var r=$('ibench');r.innerHTML='';if(!G)return;r.appendChild(el('span','lbl','ITEMS'));
   for(var i=0;i<Math.max(STASH,G.stash.length);i++){var k=G.stash[i],s=el('button','slot islot');s.type='button';
-    if(k==='gate'){s.innerHTML='<img src="'+obsCanvas('gate').toDataURL()+'" alt="Gate" style="width:86%;height:auto;object-fit:contain">';s.title='Gate: tap to place it or sell it for '+GATE_SELL+' gold';(function(i){s.onclick=function(){benchGate(i);};})(i);}
-    else if(k==='wall'){s.innerHTML='<img src="'+obsCanvas('wall').toDataURL()+'" alt="Wall" style="width:72%;height:auto;object-fit:contain">';s.title='Wall: tap to build it or sell it for '+WALL_SELL+' gold';(function(i){s.onclick=function(){benchWall(i);};})(i);}
+    if(k==='gate'){s.innerHTML='<img src="'+obsCanvas('gate').toDataURL()+'" alt="Gate" style="width:86%;height:auto;object-fit:contain">';s.title='Gate: tap to place it';(function(i){s.onclick=function(){benchGate(i);};})(i);}
+    else if(k==='wall'){s.innerHTML='<img src="'+obsCanvas('wall').toDataURL()+'" alt="Wall" style="width:72%;height:auto;object-fit:contain">';s.title='Wall: tap to build it';(function(i){s.onclick=function(){benchWall(i);};})(i);}
     else if(k==='chest'){s.innerHTML='<img src="'+chestURL()+'" alt="Treasure Chest" style="width:72%;height:auto;object-fit:contain">';s.title='Treasure Chest: place it on your side. If it survives and you win, it pays '+chestGold()+' gold. Tap to place.';s.onclick=function(){if(tdRoom())return toast('No walls, gates or chests in the bonus round');if(phase!=='prep')return toast('Place chests between fights');if(cofferMode){cofferMode=false;renderAll();return;}cofferMode=true;wallMode=false;gateMode=false;sel=null;toast('Tap an empty hex on your side to place the chest');renderAll();};}
     else if(k){s.classList.add('tier'+itemDef(k).t);s.innerHTML='<img src="'+glyphURL(itemDef(k).g,3,itemDef(k).t)+'" alt="'+esc(itemDef(k).n)+'">';s.title=itemDef(k).n+': '+itemDef(k).d+' (tap to give to a hero or sell)';(function(i){s.onclick=function(){stashClick(i);};})(i);}
     else s.disabled=true;r.appendChild(s);}}
