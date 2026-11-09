@@ -1430,7 +1430,7 @@ function statGold(n){try{ST().gold+=n;}catch(e){}}
 function finishRun(){if(!G||G.renownDone)return 0;G.renownDone=true;try{var s=ST();(G.relics||[]).forEach(function(k){s.rel[k]=(s.rel[k]||0)+1;});}catch(e){}var r=renownFor();META.renown+=r;META.earned+=r;commitXP();
   if(G.endless&&G.act>META.bestDeep)META.bestDeep=G.act;saveMeta();return r;}
 /* foe scaling from ascension (applied to fresh units) */
-function ascFoes(units){units.forEach(function(u){var hm=1,am=1;if(DAILY){hm*=DAILY.twist.fHp||1;am*=DAILY.twist.fAtk||1;}
+function ascFoes(units){units.forEach(function(u){var hm=1,am=1;if(DAILY){hm*=1.1+((DAILY.twist.fHp||1)-1);am*=1.1+((DAILY.twist.fAtk||1)-1);}
   if(asc(1))hm*=1.1;if(asc(5))am*=1.1;if(u.boss){if(asc(2)){hm*=1.15;am*=1.15;}if(asc(9)){hm*=1.15;am*=1.15;}}
   u.hp*=hm;u.mhp=u.hp;u.atk*=am;});return units;}
 /* ---------- camp screen ---------- */
@@ -1908,7 +1908,7 @@ function dailyShop(cfg,plan,second){
     dialog(dHead(cfg,plan,'Pick your relic')+'<p class="muted">Costs '+cfg.relicPrice+' today. You start with it.</p>',[{html:'<b>No starting relic</b>',fn:function(){plan.relic=null;hub();}}].concat(ks.map(function(k){var r=RELICS[k];
       return {html:'<div class="row"><img src="'+glyphURL(r.g,4)+'" alt=""></div><b>'+esc(r.n)+(plan.relic===k?' <span class="muted">chosen</span>':'')+'</b><span>'+esc(r.d)+'</span>',fn:function(){if(!plan.relic&&left()<cfg.relicPrice){toast('Not enough budget');return relics();}plan.relic=k;hub();}};})).concat([back()]),true);};
   hub=function(){var bn=Object.keys(plan.boosts).reduce(function(a,k){return a+plan.boosts[k];},0);
-    dialog(dHead(cfg,plan,'Daily Gambit · '+dailyLabel(cfg.date))+'<p><b>Today\'s twist: '+esc(cfg.twist.n)+'.</b> '+esc(cfg.twist.d)+'</p><p><b>Today\'s commander: '+esc(cmdDef(cfg.cmd).n)+'.</b> '+esc(cmdDef(cfg.cmd).d)+'</p>'+(cfg.asc?'<p>Ascension '+cfg.asc+'.</p>':''),[
+    dialog(dHead(cfg,plan,'Daily Gambit · '+dailyLabel(cfg.date))+'<p><b>Today\'s twist: '+esc(cfg.twist.n)+'.</b> '+esc(cfg.twist.d)+'</p><p><b>Today\'s commander: '+esc(cmdDef(cfg.cmd).n)+'.</b> '+esc(cmdDef(cfg.cmd).d)+'</p>'+(cfg.asc?'<p>Ascension '+cfg.asc+'.</p>':'')+'<p><b>Daily foes:</b> all foes have 10% more health and deal 10% more damage.</p>',[
       {html:'<b>Heroes</b><span>Swap and train.</span><small>'+(plan.swaps.length+Object.keys(plan.train).length)+' bought</small>',fn:heroes},
       {html:'<b>Starting boosts</b><span>Gold, market and more.</span><small>'+bn+' bought</small>',fn:boosts},
       {html:'<b>Relic</b><span>'+(plan.relic?esc(RELICS[plan.relic].n):'None picked')+'</span>',fn:relics},
@@ -1933,7 +1933,7 @@ function dailyLoad(){try{var r=JSON.parse(localStorage.getItem('dd1_daily')||'nu
 function dailyScore(act,step){return act*10+step;}
 /* beating the act 3 boss does not end the daily: the run goes straight on into the Endless Deep and ends when the party falls */
 function dailyVictory(){G.cleared=true;G.endless=true;SFX.play('win');
-  dialog('<h2>The Pale Sovereign is destroyed</h2><p>The Daily Gambit goes on: you descend into the Endless Deep. The acts keep getting harder, and the run ends when your party falls. How deep can you get?</p>',[{html:'<b>Descend</b>',fn:function(){advance(true);}}],true,true);}
+  dialog('<h2>The Pale Sovereign is destroyed</h2><p>The Daily Gambit goes on: you descend into the Endless Deep. The acts keep getting harder, and the run ends when your party falls. How deep can you get?</p>',[{html:'<b>Descend</b>',fn:function(){startBonus();}}],true,true);}
 function dailyEnd1(kind,report){phase='over';try{localStorage.removeItem('dd1_daily');}catch(e){}
   var win=!!G.cleared;var rn=finishRun();
   var res={w:win?1:0,k:kind,wins:G.stats.wins,act:G.act,step:G.step,hp:Math.max(0,Math.round(G.hp)),party:G.party.map(function(h){return [h.hid,h.lv];}),log:G.dly.log||'',asc:G.asc||0};
@@ -2273,7 +2273,7 @@ function advance(win){
   if(boss&&!win){G.tr=(G.tr||0)+1;restock();nextFight();return;} /* face the boss again, with a fresh market */
   G.tr=0;
   if(boss&&win){
-    if(!wasBonus&&!G.endless&&G.act<=ACTS)return startBonus(); /* beating one of the 3 act bosses leads to a bonus round (none in the Deep) */
+    if(!wasBonus&&!G.endless&&G.act<=ACTS){if(G.dly&&G.act===ACTS)return dailyVictory();return startBonus();} /* beating one of the 3 act bosses leads to a bonus round (none in the Deep) */
     if(G.act===ACTS&&!G.endless)return victory();
     G.act++;G.step=1;var actHeal=20;G.hp=Math.min(maxHp(),G.hp+actHeal);toast((G.act>ACTS?'Deep '+G.act+'. Your party rests: +'+actHeal+' health.':'Act '+G.act+'. Your party rests: +'+actHeal+' health, and room for one more hero on the board.'));
     if(G.endless&&G.act>META.bestDeep){META.bestDeep=G.act;saveMeta();}
