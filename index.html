@@ -1897,10 +1897,13 @@ function dailyShop(cfg,plan,second){
     dialog(dHead(cfg,plan,esc(HEROES[k].n)+': pick a perk'),pl.map(function(p){return {html:'<b>'+esc(p.n)+'</b><span>'+esc(p.d)+'</span>',fn:function(){
       if(lv<3){plan.train[k]={lv:lv,perk:p.k,path:null};return trainList();}
       dialog(dHead(cfg,plan,esc(HEROES[k].n)+': pick a path'),HEROES[k].paths.map(function(pp){return {html:'<b>'+esc(pp.n)+'</b><span>'+esc(pp.d)+'</span>',fn:function(){plan.train[k]={lv:3,perk:p.k,path:pp.k};trainList();}};}),true);}};}).concat([{html:'<b>Back</b>',fn:function(){trainOpts(k);}}]),true);};
-  var boosts=function(){
-    dialog(dHead(cfg,plan,'Starting boosts')+'<p class="muted">Today\'s stock and prices. Tap to buy the next level. Tap a fully bought one to take it back.</p>',cfg.bk.map(function(k){var u=UPGRADES.filter(function(x){return x.k===k;})[0],n=plan.boosts[k]||0,pr=cfg.boosts[k].price,mx=pr.length;
-      return {html:'<div class="row"><img src="'+glyphURL(u.g,3)+'" alt=""></div><b>'+esc(u.n)+'</b><span>'+esc(u.d)+'</span><small>'+(n>=mx?'Bought'+(mx>1?' (max)':'')+' · tap to take back':'Cost '+pr[n]+(mx>1?' · level '+(n+1)+' of '+mx:''))+(n&&n<mx?' · owned '+n:'')+'</small>',
-        fn:function(){if(n>=mx)delete plan.boosts[k];else if(left()<pr[n])toast('Not enough budget');else plan.boosts[k]=n+1;boosts();}};}).concat([{html:'<b>Back</b>',fn:hub}]),true);};
+  var boosts=function(){var ch=[];
+    cfg.bk.forEach(function(k){var u=UPGRADES.filter(function(x){return x.k===k;})[0],n=plan.boosts[k]||0,pr=cfg.boosts[k].price,mx=pr.length;
+      ch.push({html:'<div class="row"><img src="'+glyphURL(u.g,3)+'" alt=""></div><b>'+esc(u.n)+'</b><span>'+esc(u.d)+'</span><small>'+(n>=mx?'Bought'+(mx>1?' (all '+mx+' levels)':''):'Buy for '+pr[n]+(mx>1?' · level '+(n+1)+' of '+mx:''))+(n&&n<mx?' · owned '+n:'')+'</small>',
+        fn:function(){if(n>=mx)toast('Already bought. Use Take back below.');else if(left()<pr[n])toast('Not enough budget');else plan.boosts[k]=n+1;boosts();}});
+      if(n)ch.push({html:'<b>Take back '+esc(u.n)+'</b><small>Refund '+pr[n-1]+(n>1?' (one level)':'')+'</small>',cls:'sellc',fn:function(){if(n>1)plan.boosts[k]=n-1;else delete plan.boosts[k];boosts();}});});
+    ch.push({html:'<b>Back</b>',fn:hub});
+    dialog(dHead(cfg,plan,'Starting boosts')+'<p class="muted">Today\'s stock and prices. Tap one to buy the next level. Bought ones show a Take back line under them.</p>',ch,true);};
   var relics=function(){var ks=RELIC_KEYS.filter(function(k){return k!=='hoard';});
     dialog(dHead(cfg,plan,'Pick your relic')+'<p class="muted">Costs '+cfg.relicPrice+' today. You start with it.</p>',[{html:'<b>No starting relic</b>',fn:function(){plan.relic=null;hub();}}].concat(ks.map(function(k){var r=RELICS[k];
       return {html:'<div class="row"><img src="'+glyphURL(r.g,4)+'" alt=""></div><b>'+esc(r.n)+(plan.relic===k?' <span class="muted">chosen</span>':'')+'</b><span>'+esc(r.d)+'</span>',fn:function(){if(!plan.relic&&left()<cfg.relicPrice){toast('Not enough budget');return relics();}plan.relic=k;hub();}};})).concat([back()]),true);};
@@ -1949,7 +1952,7 @@ function dailyCopy(t){var ok=false;try{if(navigator.clipboard&&navigator.clipboa
 function dailyMenu(){
   if(META.wins<1){dialog('<h2>Daily Gambit</h2><p>A new seeded challenge every day, the same for everyone. Beat the act 3 boss once to unlock it.</p>',[{html:'<b>Back</b>',fn:showTitle}],true,true);return;}
   var R=dailyRec(),cfg=dailyCfg(R.date),ch=[],best=dailyBest(R);
-  var sum='<h2>Daily Gambit · '+dailyLabel(R.date)+'</h2><p><b>Twist: '+esc(cfg.twist.n)+'.</b> '+esc(cfg.twist.d)+'</p><p><b>Commander: '+esc(cmdDef(cfg.cmd).n)+'.</b> '+esc(cmdDef(cfg.cmd).d)+'</p><p class="muted">Budget '+cfg.budget+' Renown'+(cfg.asc?' · Ascension '+cfg.asc:'')+'. Level 1 heroes, no Camp upgrades or mastery. One run a day, no restarts. Beat act 3 and you drop into the Endless Deep: your score is the depth you reach, then the round (1 to 7).</p>';
+  var sum='<h2>Daily Gambit · '+dailyLabel(R.date)+'</h2><p><b>Twist: '+esc(cfg.twist.n)+'.</b> '+esc(cfg.twist.d)+'</p><p><b>Commander: '+esc(cmdDef(cfg.cmd).n)+'.</b> '+esc(cmdDef(cfg.cmd).d)+'</p><p class="muted">Budget '+cfg.budget+' Renown'+(cfg.asc?' · Ascension '+cfg.asc:'')+'. Level 1 heroes, no Camp upgrades or mastery. One run a day, no restarts. Everyone has the same seed. The deepest run is the daily winner.</p>';
   R.att.forEach(function(a,i){sum+='<p>Attempt '+(i+1)+': '+(a.act>ACTS?'<b>Reached depth '+a.act+', round '+a.step+' of the Deep</b>':'Fell in act '+a.act+', step '+a.step)+' · fights won '+a.wins+(best===a&&R.att.length>1?' <span class="muted">(best)</span>':'')+'</p>';});
   if(R.active){
     ch.push({html:'<b>Continue your run</b>',fn:function(){var sv=dailyLoad();if(sv){G=sv;DAILY=G.dly;resumeRun();}else if(R.plan){dailyLaunch(R.plan);}else{R.active=false;saveMeta();dailyMenu();}}});
@@ -2079,7 +2082,7 @@ function marketTier(){var x=rnd()*(1-.15*upg('quarter')),a=Math.min(G.act,ACTS),
   if(a===1)return x<.04*st?2:1;
   if(a===2)return x<.06+.02*st?3:x<.55?2:1;
   return x<.3+.04*st?3:x<.9?2:1;}
-function rollMarket(){if(DAILY)dre('m'+G.act+'.'+G.step+'.'+(G.rr||0));var s=[],seen={};for(var i=0;i<3+upg('recruit')+(DAILY&&DAILY.twist.handN||0);i++){var k,g=0;do{k=rollHero();}while(seen[k]&&g++<20);seen[k]=1;s.push({type:'hero',key:k,coin:coinPick});}var mt=marketTier();s.push({type:'item',key:pick(itemPool(mt))+':'+mt});if(DAILY&&DAILY.twist.items){var mt2=marketTier();s.push({type:'item',key:pick(itemPool(mt2))+':'+mt2});}
+function rollMarket(){if(DAILY)dre('m'+G.act+'.'+G.step+'.'+(G.rr||0)+'.'+(G.tr||0)+(G.enc&&G.enc.td?'b':''));var s=[],seen={};for(var i=0;i<3+upg('recruit')+(DAILY&&DAILY.twist.handN||0);i++){var k,g=0;do{k=rollHero();}while(seen[k]&&g++<20);seen[k]=1;s.push({type:'hero',key:k,coin:coinPick});}var mt=marketTier();s.push({type:'item',key:pick(itemPool(mt))+':'+mt});if(DAILY&&DAILY.twist.items){var mt2=marketTier();s.push({type:'item',key:pick(itemPool(mt2))+':'+mt2});}
   G.rlv=G.rlv||{};var rl=relicPool().filter(function(k){return G.relics.indexOf(k)<0;});
   G.relics.forEach(function(k){var lv=G.rlv[k]||1;if(RTIER[k]&&lv<3)rl.push(k+':'+(lv+1));}); /* upgrades for relics you own */
   if(rl.length)s.push({type:'relic',key:pick(rl)});
@@ -2267,7 +2270,8 @@ function offerRelics(done){if(DAILY)dre('rr'+G.act+'.'+G.step);var ks=relicPool(
   dialog('<h2>Choose a relic</h2><p class="muted">Relics affect your whole party for the rest of the run.</p>',ks.map(function(k){var r=RELICS[k];return {html:'<div class="row"><img src="'+glyphURL(r.g,4)+'" alt=""></div><b>'+esc(r.n)+'</b><span>'+esc(r.d)+'</span>',fn:function(){G.relics.push(k);done();}};}),true,false,'Choosing a relic');}
 function advance(win){
   var boss=G.enc.diff==='boss',wasBonus=!!G.enc.td;if(wasBonus){boss=true;win=true;}
-  if(boss&&!win){restock();nextFight();return;} /* face the boss again, with a fresh market */
+  if(boss&&!win){G.tr=(G.tr||0)+1;restock();nextFight();return;} /* face the boss again, with a fresh market */
+  G.tr=0;
   if(boss&&win){
     if(!wasBonus&&!G.endless&&G.act<=ACTS)return startBonus(); /* beating one of the 3 act bosses leads to a bonus round (none in the Deep) */
     if(G.act===ACTS&&!G.endless)return victory();
@@ -2757,7 +2761,7 @@ function boot(){
 }
 boot();
 window.__sprReady=function(){try{if(G)renderAll();}catch(e){}};
-window.__dd={priceOf:priceOf,itemCap:itemCap,TWISTS:TWISTS,dailyCfg:dailyCfg,dNewPlan:dNewPlan,dailyLaunch:dailyLaunch,dailyRec:dailyRec,dailyMenu:dailyMenu,dailyShare:dailyShare,getDAILY:function(){return DAILY;},makeSFX:makeSFX,SFX:SFX,rollMarket:rollMarket,renderAll:renderAll,showTitle:showTitle,showCamp:showCamp,SPR:SPR,spriteURL:spriteURL,SPRC:SPRC,SPRURL:SPRURL,showStats:showStats,ST:ST,endFight:endFight,startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
+window.__dd={rerollCost:rerollCost,MAXLV:MAXLV,priceOf:priceOf,itemCap:itemCap,TWISTS:TWISTS,dailyCfg:dailyCfg,dNewPlan:dNewPlan,dailyLaunch:dailyLaunch,dailyRec:dailyRec,dailyMenu:dailyMenu,dailyShare:dailyShare,getDAILY:function(){return DAILY;},makeSFX:makeSFX,SFX:SFX,rollMarket:rollMarket,renderAll:renderAll,showTitle:showTitle,showCamp:showCamp,SPR:SPR,spriteURL:spriteURL,SPRC:SPRC,SPRURL:SPRURL,showStats:showStats,ST:ST,endFight:endFight,startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
   startRun:startRun,undoBuy:undoBuy,nextFight:nextFight,enterPrep:enterPrep,startFight:startFight,skipFight:skipFight,endFight:endFight,buy:buy,reroll:reroll,sellHero:sellHero,
   closeDialog:closeDialog,showTitle:showTitle,genEncounter:genEncounter,placeHero:placeHero,afterChange:afterChange,boardCap:boardCap,onBoard:onBoard,inReserve:inReserve,
   showEventK:function(k,done){var e=EVENTS.filter(function(x){return x.k===k;})[0];var o=EVENTS;EVENTS=[e];showEvent(done);EVENTS=o;},TUNE:TUNE,HEROES:HEROES,PERKS:PERKS,ITEM_KEYS:ITEM_KEYS,RELIC_KEYS:RELIC_KEYS,HERO_KEYS:HERO_KEYS,genBoss:genBoss,ITEMS:ITEMS,RELICS:RELICS,heroUnit:heroUnit,mkSim:mkSim,simStep:simStep,foeUnits:foeUnits,themeCounts:themeCounts,foeThemes:foeThemes};
