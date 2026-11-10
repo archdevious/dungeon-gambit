@@ -1,5 +1,5 @@
 window.BOT=(function(){
-var d=window.__dd, LOG=[], unknown={}, CFG={noPlace:false,bench:0};
+var d=window.__dd, LOG=[], unknown={}, CFG={noPlace:false,bench:0,restBelow:.6,rerollGold:10,rerollMax:4,buyMin:6,spread:1.5,dupe:0,parity:0,relicAll:0,trainB:20,tankB:0,frontB:0};
 function log(s){LOG.push(s);}
 var SPELLITEM={book:10,echo:9,crystal:8,gcast:8,gsup:7};
 var ITEMP={book:10,echo:9,crystal:8,gcast:8,gsup:7,boots:6,sword:5,mail:5,garch:5,gass:5,gtank:5,gfight:5,fang:4,aegis:4,spikes:3,ember:5,shard:4,vial:5,serrate:4};
@@ -13,9 +13,10 @@ function isTank(h){return /tank/.test(role(h));}
 function isRanged(h){return d.HEROES[h.hid].rng>=3;}
 function nm(h){return d.HEROES[h.hid].n;}
 function cap(){return d.boardCap();}
-function heroScore(k){var H=d.HEROES[k];var s=(HEROP[k]||5);var G=d.G;var team=G.party;var themes={};team.forEach(function(h){d.HEROES[h.hid].th.forEach(function(t){themes[t]=(themes[t]||0)+1;});});
-  H.th.forEach(function(t){s+=(themes[t]||0)*.8;});
-  var tanks=team.filter(isTank).length;if(/tank/.test(H.role.toLowerCase())&&tanks<1)s+=4;if(/tank/.test(H.role.toLowerCase())&&tanks>=2)s-=4;
+function trainedBonus(k){var D=d.getDAILY&&d.getDAILY();return (D&&D.train&&D.train[k])?CFG.trainB:0;}
+function heroScore(k){var H=d.HEROES[k];var s=(HEROP[k]||5)+trainedBonus(k);var G=d.G;var team=G.party;var themes={};team.forEach(function(h){d.HEROES[h.hid].th.forEach(function(t){themes[t]=(themes[t]||0)+1;});});
+  H.th.forEach(function(t){var c=themes[t]||0;if(CFG.parity){s+=(c%2===1?3.5:(c===0?1:0));}else s+=c*.8;});
+  var tanks=team.filter(isTank).length;if(/tank/.test(H.role.toLowerCase())&&tanks<1)s+=4+CFG.tankB;var fr=team.filter(function(h){return isTank(h)||/fighter/.test(role(h));}).length;if(fr<1&&(/tank|fighter/.test(H.role.toLowerCase())))s+=CFG.frontB;if(/tank/.test(H.role.toLowerCase())&&tanks>=2)s-=4;
   var casters=team.filter(isCaster).length;if(/caster/.test(H.role.toLowerCase())&&casters<3)s+=2;
   return s;}
 function dlg(){return document.querySelector('#ov .dlg');}
@@ -31,19 +32,19 @@ function wantHeroFor(itemKey){var G=d.G,cand=G.party.filter(function(h){return h
     if(it&&it.th&&d.HEROES[h.hid].th.indexOf(it.th)>=0)s+=3;
     if(/mail|aegis|spikes|gtank/.test(itemKey))s+=isTank(h)?5:0;
     if(/sword|boots|gass|garch|fang|gfight/.test(itemKey))s+=isCaster(h)?-2:(isRanged(h)||/assassin|fighter/.test(role(h))?3:0);
-    s-=h.items.length*1.5;if(!h.pos)s-=3;if(s>bs){bs=s;best=h;}});return best;}
+    s-=h.items.length*CFG.spread;if(!h.pos)s-=3;if(s>bs){bs=s;best=h;}});return best;}
 function heroScore0(h){return (HEROP[h.hid]||5)+h.lv;}
 var lastTitle='';
 function handleDialog(D){
   var title=(D.querySelector('h2')?D.querySelector('h2').innerText:'').trim();var cs=choicesOf(D);var t=title.toLowerCase();var picked='';
   if(/results and share/i.test(D.innerText)){return 'END';}
   if(!cs.length){if(clickBtn(D,/./))return 'btn';return 'stuck';}
-  if(/first hero/.test(t)){picked=pickBy(cs,function(c,n){var k=heroKeyByName(n);return k?HEROP[k]+(k==='ember'?5:0):0;});}
+  if(/first hero/.test(t)){picked=pickBy(cs,function(c,n){var k=heroKeyByName(n);return k?HEROP[k]+(k==='ember'?5:0)+trainedBonus(k):0;});}
   else if(/^give /.test(t)||/ to$/.test(t)||/^give/.test(t)){var itemName=title.replace(/^give\s+/i,'').replace(/\s+to.*$/i,'');var ik=itemKeyByName(itemName);var w=ik?wantHeroFor(ik):null;
      var idx=-1;if(w){cs.forEach(function(c,i){if(nameOf(c).indexOf(nm(w))>=0)idx=i;});}
      if(idx<0){cs.forEach(function(c,i){if(idx<0&&!/bench/i.test(nameOf(c)))idx=i;});}if(idx<0)idx=0;cs[idx].click();picked=nameOf(cs[idx]);}
   else if(/choose an item|item/.test(t)&&!/relic/.test(t)){picked=pickBy(cs,function(c,n){var k=itemKeyByName(n);return k?(ITEMP[k]||2):0;});}
-  else if(/reward or rest/.test(t)){var rest=cs.filter(function(c){return /^Rest/i.test(nameOf(c));})[0];var other=cs.filter(function(c){return !/^Rest/i.test(nameOf(c));});var low=d.G.hp<(d.G.maxHp||100)*.6;if(rest&&(low||!other.length)){rest.click();picked='Rest';}else{picked=pickBy(other,function(c,n){return /Hero/i.test(n)?5:(/Relic/i.test(n)?9:(/Item/i.test(n)?7:(/gold/i.test(n)?4:3)));});}}
+  else if(/reward or rest/.test(t)){var rest=cs.filter(function(c){return /^Rest/i.test(nameOf(c));})[0];var other=cs.filter(function(c){return !/^Rest/i.test(nameOf(c));});var low=d.G.hp<(d.G.maxHp||100)*CFG.restBelow;if(rest&&(low||!other.length)){rest.click();picked='Rest';}else{picked=pickBy(other,function(c,n){return /Hero/i.test(n)?5:(/Relic/i.test(n)?9:(/Item/i.test(n)?7:(/gold/i.test(n)?4:3)));});}}
   else if(/relic/.test(t)){picked=pickBy(cs,function(c,n){var k=relicKeyByName(n);return k?(RELICP[k]!=null?RELICP[k]:3):0;});}
   else if(/perk|level|train/.test(t)||cs.some(function(c){return /Arcana|Toughness|Keen Edge|Haste|Focus|Plating|Lifeleech|Attune/.test(nameOf(c));})){
      picked=pickBy(cs,function(c,n){var k=null;for(var pk in PERKP){var P=d.PERKS.filter(function(x){return x.k===pk})[0];if(P&&P.n===n)k=pk;}return k?PERKP[k]:0;});}
@@ -66,20 +67,20 @@ function placeAll(){if(CFG.noPlace)return;var G=d.G,cp=cap(),all=G.party.slice()
   var seen={};board.forEach(function(h){var key=h.pos.q+','+h.pos.r;if(seen[key]){for(var q=0;q<7;q++){for(var r=7;r>=4;r--){var kk=q+','+r;if(!seen[kk]){h.pos={q:q,r:r};key=kk;q=9;break;}}}}seen[key]=1;});
   bench.forEach(function(h){h.pos=null;});}
 function offerScore(o){var G=d.G;
-  if(o.type==='hero'){var h=G.party.filter(function(x){return x.hid===o.key;})[0];if(h){if(h.lv>=d.MAXLV)return -1;return 5+(HEROP[o.key]>=8?4:(HEROP[o.key]>=6?2:0))+(h.lv===1?2:0);}
+  if(o.type==='hero'){var h=G.party.filter(function(x){return x.hid===o.key;})[0];if(h){if(h.lv>=d.MAXLV)return -1;return 5+CFG.dupe+(HEROP[o.key]>=8?4:(HEROP[o.key]>=6?2:0))+(h.lv===1?2:0);}
      var n=G.party.length;if(n>=cap()+(CFG.bench||0))return -1;return heroScore(o.key);}
   if(o.type==='item'){var k=o.key.split(':')[0];return (ITEMP[k]||3)+1;}
-  if(o.type==='relic'){var rk=o.key.split(':')[0].replace(/\d$/,'');rk=o.key.indexOf(':')>0?o.key.split(':')[0]:o.key;var base=d.RELICS[rk]?rk:rk;return (RELICP[base]!=null?RELICP[base]:3)+2;}
+  if(o.type==='relic'){var rk=o.key.split(':')[0].replace(/\d$/,'');rk=o.key.indexOf(':')>0?o.key.split(':')[0]:o.key;var base=d.RELICS[rk]?rk:rk;return (CFG.relicAll?20:0)+(RELICP[base]!=null?RELICP[base]:3)+2;}
   if(o.type==='build')return o.key==='wall'?2:(o.key==='gate'?1:0);
   return 0;}
 function prep(){var G=d.G,n=0,acted=false;
   while(n++<14){if(dlg())return 'dlg';
     var best=-1,bi=-1,bsc=-1e9;
-    G.shop.forEach(function(o,i){if(o.sold)return;var p=d.priceOf(o);if(p>G.gold)return;var sc=offerScore(o);var v=sc-(p*.15);if(sc>=6&&v>bsc){bsc=v;bi=i;}});
+    G.shop.forEach(function(o,i){if(o.sold)return;var p=d.priceOf(o);if(p>G.gold)return;var sc=offerScore(o);var v=sc-(p*.15);if(sc>=CFG.buyMin&&v>bsc){bsc=v;bi=i;}});
     if(bi>=0){var oo=G.shop[bi];LOG.push('BUY '+oo.type+':'+oo.key+' '+d.priceOf(oo)+'g (gold '+G.gold+')');d.buy(bi);acted=true;if(dlg())return 'dlg';continue;}
     // reroll if rich enough
     var rc=(typeof d.rerollCost==='function')?d.rerollCost():1;
-    if(G.gold>=rc+10&&(G.rr||0)<4){var g0=G.gold;LOG.push('REROLL '+rc+'g');d.reroll();acted=true;continue;}
+    if(G.gold>=rc+CFG.rerollGold&&(G.rr||0)<CFG.rerollMax){var g0=G.gold;LOG.push('REROLL '+rc+'g');d.reroll();acted=true;continue;}
     break;}
   placeAll();return acted?'acted':'idle';}
 function fight(){var G=d.G;placeAll();d.startFight();var k=0;while(d.S&&!d.S.over&&k++<9000)d.simStep(d.S);var win=d.S&&d.S.winner===0;d.endFight();return win;}

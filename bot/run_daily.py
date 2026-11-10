@@ -3,6 +3,8 @@ usage: python3 run_daily.py PATH_TO_index.html [--submit] [--fake YYYY-MM-DD]"""
 import json,re,sys,os,urllib.request
 from playwright.sync_api import sync_playwright
 HERE=os.path.dirname(os.path.abspath(__file__))
+BOTJS=sys.argv[sys.argv.index('--bot')+1] if '--bot' in sys.argv else os.path.join(HERE,'bot.js')
+CFGJ=sys.argv[sys.argv.index('--cfg')+1] if '--cfg' in sys.argv else '{}'
 HTML=sys.argv[1];SUBMIT='--submit' in sys.argv
 FAKE=sys.argv[sys.argv.index('--fake')+1] if '--fake' in sys.argv else None
 URL='https://bbawfdqrxqfeqadcfdqj.supabase.co';KEY='sb_publishable_owcLW7JcSGVvUIcfvNYRuQ_G0arZB9Z'
@@ -16,6 +18,32 @@ def plan(pg):
         loc=pg.locator(C,has_text=re.compile(r'^\s*Back\s*$') if exact_back else t);loc.first.click();pg.wait_for_timeout(200)
     click('Daily Gambit');click('Plan your run')
     t=txt(pg)
+    PERKS=['Arcana','Focus','Toughness','Haste','Keen Edge','Plating','Lifeleech']
+    CAST=['Emberwitch','Nix','Grisk','Sable','Kestrel','Mother Moss']
+    def budget():return int(re.search(r'Budget: (\d+)',txt(pg)).group(1))
+    click('Heroes');done=0
+    for _ in range(0 if os.environ.get('NOTRAIN') else 2):
+        left=budget();lv=3 if left>=(30 if done==0 else 60) else (2 if left>=12 and done==0 else 0)
+        if not lv:break
+        pg.locator(C,has_text='Train a hero').first.click();pg.wait_for_timeout(200)
+        hero=None
+        for nm in CAST:
+            if pg.locator('#ov .dlg .choice',has_text=nm).filter(has_not_text='Lv ').count():hero=nm;break
+        if not hero:
+            click('Back',True);break
+        pg.locator('#ov .dlg .choice',has_text=hero).filter(has_not_text='Lv ').first.click();pg.wait_for_timeout(200)
+        click('Level %d'%lv)
+        got=False
+        for pk in PERKS:
+            if pg.locator('#ov .dlg .choice',has_text=pk).count():
+                pg.locator('#ov .dlg .choice',has_text=pk).first.click();pg.wait_for_timeout(200);got=True;break
+        if not got:pg.locator('#ov .dlg .choice').first.click();pg.wait_for_timeout(200)
+        if lv>=3:pg.locator('#ov .dlg .choice').first.click();pg.wait_for_timeout(200)
+        print('trained',hero,lv);done+=1
+        click('Back',True)
+        if done<2 and budget()>=60:continue
+        break
+    click('Back',True)
     click('Relic');rt=txt(pg)
     if 'Echoing Tome' in rt:
         pg.locator(C,has_text='Echoing Tome').first.click();pg.wait_for_timeout(200)
@@ -44,10 +72,12 @@ def main():
         pg.goto('file://'+os.path.abspath(HTML));pg.wait_for_timeout(900)
         pg.evaluate("()=>{var m=JSON.parse(localStorage.getItem('dd1_meta')||'{}');m.wins=1;m.renown=500;localStorage.setItem('dd1_meta',JSON.stringify(m));}");pg.reload();pg.wait_for_timeout(900)
         day=pg.evaluate("()=>window.__dd.dailyRec().date")
-        pg.add_script_tag(path=os.path.join(HERE,'bot.js'))
+        pg.add_script_tag(path=BOTJS);pg.evaluate('(c)=>{Object.assign(BOT.cfg,c)}',json.loads(CFGJ))
         plan(pg)
         for t in range(2000):
             r=pg.evaluate("()=>BOT.tick()")
+            if '--v' in sys.argv:
+                for l in r.get('log',[]):print(l[:1200])
             if r['s']=='END':break
             if r['s'] in('stuck','nog','wait'):print('STATE',r['s']);break
         res=pg.evaluate("()=>{var R=JSON.parse(localStorage.getItem('dd1_meta')).daily;return R&&R.att&&R.att[0]}")
