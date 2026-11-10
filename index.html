@@ -1957,16 +1957,18 @@ function lbAskName(next,msg){var m=lbMeta();window.__lbn=m.name||'';
       if(n.length<2)return lbAskName(next,'Use at least 2 letters or numbers.');if(!lbNameOk(n))return lbAskName(next,'That name is not allowed. Please pick another.');
       m.name=n;saveMeta();lbFlush();next();}},{html:'<b>Not now</b>',fn:next}],true,false);
   setTimeout(function(){var i=document.getElementById('lbname');if(i)i.focus();},50);}
-function lbShow(R,back){dialog('<h2>Leaderboard · '+dailyLabel(R.date)+'</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);
+function lbShift(day,n){var p=day.split('-'),t=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]+n));return t.getUTCFullYear()+'-'+p2(t.getUTCMonth()+1)+'-'+p2(t.getUTCDate());}
+function lbShow(R,back,day){day=day||R.date;var tod=dailyKey(),nav=function(){var c=[];c.push({html:'<b>Previous day</b>',fn:function(){lbShow(R,back,lbShift(day,-1));}});if(day<tod)c.push({html:'<b>Next day</b>',fn:function(){lbShow(R,back,lbShift(day,1));}});return c;};
+  dialog('<h2>Leaderboard · '+dailyLabel(day)+'</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);
   lbFlush();var m=lbMeta();
-  lbFetch('/rest/v1/daily_scores?day=eq.'+encodeURIComponent(R.date)+'&select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=50').then(function(rows){
-    var h='<h2>Leaderboard · '+dailyLabel(R.date)+'</h2>';
-    if(!rows||!rows.length)h+='<p class="muted">No scores yet today. Be the first.</p>';
+  lbFetch('/rest/v1/daily_scores?day=eq.'+encodeURIComponent(day)+'&select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=50').then(function(rows){
+    var h='<h2>Leaderboard · '+dailyLabel(day)+(day===tod?' (today)':'')+'</h2>';
+    if(!rows||!rows.length)h+='<p class="muted">No scores'+(day===tod?' yet today. Be the first.':' for this day.')+'</p>';
     else{h+='<div style="max-height:52vh;overflow:auto">';rows.forEach(function(r,i){var me=r.device===m.dev;
       h+='<p style="margin:4px 0;'+(me?'font-weight:700;color:var(--gold)':'')+'">'+(i+1)+'. '+esc(r.name)+(me?' (you)':'')+' · '+(r.act>ACTS?'depth '+r.act+', round '+r.step:'act '+r.act+', step '+r.step)+' <span class="muted">· '+r.wins+' fights</span></p>';});h+='</div>';}
     if(m.q.length)h+='<p class="muted">Your latest result is waiting to be sent.</p>';
-    dialog(h,[{html:'<b>Change my name</b>',fn:function(){lbAskName(function(){lbShow(R,back);});}},{html:'<b>Back</b>',fn:back}],true,false);
-  },function(){dialog('<h2>Leaderboard</h2><p>The leaderboard could not be reached. Check your connection and try again. Your results are saved and will be sent later.</p>',[{html:'<b>Back</b>',fn:back}],true,true);});}
+    dialog(h,nav().concat([{html:'<b>Change my name</b>',fn:function(){lbAskName(function(){lbShow(R,back,day);});}},{html:'<b>Back</b>',fn:back}]),true,false);
+  },function(){dialog('<h2>Leaderboard</h2><p>The leaderboard could not be reached. Check your connection and try again. Your results are saved and will be sent later.</p>',nav().concat([{html:'<b>Back</b>',fn:back}]),true,false);});}
 function dailyEnd1(kind,report){phase='over';try{localStorage.removeItem('dd1_daily');}catch(e){}
   var win=!!G.cleared;var rn=finishRun();
   var res={w:win?1:0,k:kind,wins:G.stats.wins,act:G.act,step:G.step,hp:Math.max(0,Math.round(G.hp)),party:G.party.map(function(h){return [h.hid,h.lv];}),log:G.dly.log||'',asc:G.asc||0};
