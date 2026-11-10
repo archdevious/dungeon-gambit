@@ -1949,13 +1949,15 @@ function lbFetch(path,opt){var c=typeof AbortController!=='undefined'?new AbortC
 function lbQueue(day,res){try{var m=lbMeta(),q=m.q,i,ex=null;for(i=0;i<q.length;i++)if(q[i].day===day)ex=q[i];
   var s=dailyScore(res.act,res.step);if(!ex)q.push({day:day,act:res.act,step:res.step,wins:res.wins});else if(s>dailyScore(ex.act,ex.step)){ex.act=res.act;ex.step=res.step;ex.wins=res.wins;}saveMeta();lbFlush();}catch(e){}}
 var lbBusy=false;
-function lbFlush(){try{var m=lbMeta();if(lbBusy||!m.q.length||!m.name)return;lbBusy=true;var it=m.q[0];
+function lbFlush(){try{var m=lbMeta();if(lbBusy||!m.name||(!m.q.length&&!m.rn))return;
+  if(m.rn){lbBusy=true;lbFetch('/rest/v1/rpc/rename_daily',{method:'POST',body:JSON.stringify({p_device:m.dev,p_name:m.name})}).then(function(){m.rn=false;saveMeta();lbBusy=false;lbFlush();},function(){lbBusy=false;});return;}
+  lbBusy=true;var it=m.q[0];
   lbFetch('/rest/v1/rpc/submit_daily',{method:'POST',body:JSON.stringify({p_day:it.day,p_device:m.dev,p_name:m.name,p_act:it.act,p_step:it.step,p_wins:it.wins})}).then(function(){m.q.shift();saveMeta();lbBusy=false;lbFlush();},function(e){lbBusy=false;if(/http 4/.test(String(e&&e.message))){m.q.shift();saveMeta();lbFlush();}});}catch(e){lbBusy=false;}}
 function lbAskName(next,msg){var m=lbMeta();window.__lbn=m.name||'';
   dialog('<h2>Leaderboard name</h2><p class="muted">'+(msg||'This is shown next to your Daily Gambit scores. Up to 16 letters, numbers or spaces.')+'</p><input id="lbname" type="text" maxlength="16" value="'+esc(m.name)+'" oninput="window.__lbn=this.value" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin:6px 0">',
     [{html:'<b>Save name</b>',fn:function(){var n=lbCleanName(window.__lbn);
       if(n.length<2)return lbAskName(next,'Use at least 2 letters or numbers.');if(!lbNameOk(n))return lbAskName(next,'That name is not allowed. Please pick another.');
-      m.name=n;saveMeta();lbFlush();next();}},{html:'<b>Not now</b>',fn:next}],true,false);
+      m.name=n;m.rn=true;saveMeta();lbFlush();next();}},{html:'<b>Not now</b>',fn:next}],true,false);
   setTimeout(function(){var i=document.getElementById('lbname');if(i)i.focus();},50);}
 function lbShift(day,n){var p=day.split('-'),t=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]+n));return t.getUTCFullYear()+'-'+p2(t.getUTCMonth()+1)+'-'+p2(t.getUTCDate());}
 function lbShow(R,back,day){day=day||R.date;var tod=dailyKey(),nav=function(){var c=[];c.push({html:'<b>Previous day</b>',fn:function(){lbShow(R,back,lbShift(day,-1));}});if(day<tod)c.push({html:'<b>Next day</b>',fn:function(){lbShow(R,back,lbShift(day,1));}});return c;};
@@ -2760,7 +2762,8 @@ function drawUnit(x,u,now,isPrep){
   if(u.rx===undefined){u.rx=c[0];u.ry=c[1];}
   u.rx+=(c[0]-u.rx)*.25;u.ry+=(c[1]-u.ry)*.25;
   var px=u.rx,py=u.ry,bob=Math.round(Math.sin(now/260+u.id*1.7)*.9);
-  if(u.lunge&&u.lunge.t>now){var k=(u.lunge.t-now)/140;px+=u.lunge.dx*k*4;py+=u.lunge.dy*k*4;}
+  if(!isFinite(px))px=c[0];if(!isFinite(py))py=c[1];
+  if(u.lunge&&u.lunge.t>now&&isFinite(u.lunge.dx)&&isFinite(u.lunge.dy)){var k=(u.lunge.t-now)/140;px+=u.lunge.dx*k*4;py+=u.lunge.dy*k*4;}
   var alpha=1;if(u.hp<=0){if(!u.deadAt)u.deadAt=now;alpha=1-(now-u.deadAt)/450;if(alpha<=0)return;}
   x.globalAlpha=alpha;
   var big=u.boss,sz=big?52:26,ox=Math.round(px-sz/2),oy=Math.round(py-(big?46:20)+bob);
@@ -2931,7 +2934,7 @@ function boot(){
 }
 boot();
 window.__sprReady=function(){try{if(G)renderAll();}catch(e){}};
-window.__dd={rerollCost:rerollCost,MAXLV:MAXLV,priceOf:priceOf,itemCap:itemCap,TWISTS:TWISTS,dailyCfg:dailyCfg,dNewPlan:dNewPlan,dailyLaunch:dailyLaunch,dailyRec:dailyRec,dailyMenu:dailyMenu,dailyShare:dailyShare,getDAILY:function(){return DAILY;},makeSFX:makeSFX,SFX:SFX,rollMarket:rollMarket,renderAll:renderAll,showTitle:showTitle,showCamp:showCamp,SPR:SPR,spriteURL:spriteURL,SPRC:SPRC,SPRURL:SPRURL,showStats:showStats,ST:ST,endFight:endFight,startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
+window.__dd={drawUnit:drawUnit,rerollCost:rerollCost,MAXLV:MAXLV,priceOf:priceOf,itemCap:itemCap,TWISTS:TWISTS,dailyCfg:dailyCfg,dNewPlan:dNewPlan,dailyLaunch:dailyLaunch,dailyRec:dailyRec,dailyMenu:dailyMenu,dailyShare:dailyShare,getDAILY:function(){return DAILY;},makeSFX:makeSFX,SFX:SFX,rollMarket:rollMarket,renderAll:renderAll,showTitle:showTitle,showCamp:showCamp,SPR:SPR,spriteURL:spriteURL,SPRC:SPRC,SPRURL:SPRURL,showStats:showStats,ST:ST,endFight:endFight,startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
   startRun:startRun,undoBuy:undoBuy,nextFight:nextFight,enterPrep:enterPrep,startFight:startFight,skipFight:skipFight,endFight:endFight,buy:buy,reroll:reroll,sellHero:sellHero,
   closeDialog:closeDialog,showTitle:showTitle,genEncounter:genEncounter,placeHero:placeHero,afterChange:afterChange,boardCap:boardCap,onBoard:onBoard,inReserve:inReserve,
   showEventK:function(k,done){var e=EVENTS.filter(function(x){return x.k===k;})[0];var o=EVENTS;EVENTS=[e];showEvent(done);EVENTS=o;},TUNE:TUNE,HEROES:HEROES,PERKS:PERKS,ITEM_KEYS:ITEM_KEYS,RELIC_KEYS:RELIC_KEYS,HERO_KEYS:HERO_KEYS,genBoss:genBoss,ITEMS:ITEMS,RELICS:RELICS,heroUnit:heroUnit,mkSim:mkSim,simStep:simStep,foeUnits:foeUnits,themeCounts:themeCounts,foeThemes:foeThemes};
