@@ -1949,7 +1949,7 @@ function lbFetch(path,opt){var c=typeof AbortController!=='undefined'?new AbortC
 function lbQueue(day,res){try{var m=lbMeta(),q=m.q,i,ex=null;for(i=0;i<q.length;i++)if(q[i].day===day)ex=q[i];
   var s=dailyScore(res.act,res.step);if(!ex)q.push({day:day,act:res.act,step:res.step,wins:res.wins});else if(s>dailyScore(ex.act,ex.step)){ex.act=res.act;ex.step=res.step;ex.wins=res.wins;}saveMeta();lbFlush();}catch(e){}}
 var lbBusy=false;
-function lbFlushOne(it,m){var e=!!it.e;return lbFetch(e?'/rest/v1/rpc/submit_endless':'/rest/v1/rpc/submit_daily',{method:'POST',body:JSON.stringify(e?{p_device:m.dev,p_name:m.name,p_act:it.act,p_step:it.step,p_wins:it.wins}:{p_day:it.day,p_device:m.dev,p_name:m.name,p_act:it.act,p_step:it.step,p_wins:it.wins})});}
+function lbFlushOne(it,m){var e=!!it.e;return lbFetch(e?'/rest/v1/rpc/submit_endless':'/rest/v1/rpc/submit_daily',{method:'POST',body:JSON.stringify(e?{p_device:m.dev,p_name:m.name,p_act:it.act,p_step:it.step,p_wins:it.wins,p_asc:it.a||0}:{p_day:it.day,p_device:m.dev,p_name:m.name,p_act:it.act,p_step:it.step,p_wins:it.wins})});}
 function lbFlush(){try{var m=lbMeta();if(lbBusy||!m.name||(!m.q.length&&!m.rn))return;
   if(m.rn){lbBusy=true;lbFetch('/rest/v1/rpc/rename_daily',{method:'POST',body:JSON.stringify({p_device:m.dev,p_name:m.name})}).then(function(){m.rn=false;saveMeta();lbBusy=false;lbFlush();},function(){m.rn=false;saveMeta();lbBusy=false;lbFlush();});return;}
   lbBusy=true;var it=m.q[0];
@@ -1975,21 +1975,23 @@ function lbShow(R,back,day){day=day||R.date;var tod=dailyKey(),nav=function(){va
 
 /* ---------- deepest runs (standard play) ---------- */
 function lbScoreOf(act,step){return act*10+step;}
-function lbQueueE(res){try{var m=lbMeta(),q=m.q,i,ex=null;for(i=0;i<q.length;i++)if(q[i].e)ex=q[i];
-  if(!ex)q.push({e:1,act:res.act,step:res.step,wins:res.wins});else if(lbScoreOf(res.act,res.step)>lbScoreOf(ex.act,ex.step)){ex.act=res.act;ex.step=res.step;ex.wins=res.wins;}saveMeta();lbFlush();}catch(e){}}
+function lbQueueE(res){try{var m=lbMeta(),q=m.q,i,ex=null,a=res.asc||0;for(i=0;i<q.length;i++)if(q[i].e&&(q[i].a||0)===a)ex=q[i];
+  if(!ex)q.push({e:1,a:a,act:res.act,step:res.step,wins:res.wins});else if(lbScoreOf(res.act,res.step)>lbScoreOf(ex.act,ex.step)){ex.act=res.act;ex.step=res.step;ex.wins=res.wins;}saveMeta();lbFlush();}catch(e){}}
 /* called when a standard run ends: if it beats your own best and would make the top 10, send it */
-function lbEndlessCheck(g){try{var m=lbMeta(),sc=lbScoreOf(g.act,g.step),res={act:g.act,step:g.step,wins:(g.stats&&g.stats.wins)||0};
-  if(sc<=(m.eBest||0))return;
-  lbFetch('/rest/v1/endless_scores?select=score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
+function lbEndlessCheck(g){try{var m=lbMeta(),sc=lbScoreOf(g.act,g.step),a=g.asc||0,res={asc:a,act:g.act,step:g.step,wins:(g.stats&&g.stats.wins)||0};m.eB=m.eB||{};
+  if(sc<=(m.eB[a]||0))return;
+  lbFetch('/rest/v1/endless_scores?ascn=eq.'+a+'&select=score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
     if(rows&&rows.length>=10&&sc<=rows[9].score)return;
-    m.eBest=sc;saveMeta();lbQueueE(res);if(!m.name){try{toast('This run is a top 10 deepest run! Open Leaderboards to set your name and post it.');}catch(e){}}},function(){});}catch(e){}}
-function lbShowDeep(back){var m=lbMeta();dialog('<h2>Deepest runs</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);lbFlush();
-  lbFetch('/rest/v1/endless_scores?select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
-    var h='<h2>Deepest runs</h2><p class="muted">Standard play, all your unlocked upgrades allowed. One entry per player, your best run.</p>';
+    m.eB[a]=sc;saveMeta();lbQueueE(res);if(!m.name){try{toast('This run is a top 10 deepest run! Open Leaderboards to set your name and post it.');}catch(e){}}},function(){});}catch(e){}}
+function lbAscName(a){return a?'Ascension '+a+(ASC[a-1]?' ('+ASC[a-1].n+')':''):'Standard (no ascension)';}
+function lbShowDeep(back,asc){var m=lbMeta();var mx=META.ascMax||0;if(asc==null)asc=(typeof META.lastAsc==='number'&&META.lastAsc<=mx)?META.lastAsc:0;if(asc>mx)asc=mx;dialog('<h2>Deepest runs</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);lbFlush();
+  lbFetch('/rest/v1/endless_scores?ascn=eq.'+asc+'&select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
+    var h='<h2>Deepest runs</h2><p class="muted">'+lbAscName(asc)+'. Standard play, all your unlocked upgrades allowed. One entry per player, your best run on this ascension.</p>';
     if(!rows||!rows.length)h+='<p class="muted">No runs yet. Finish a run deep enough to be first.</p>';
     else rows.forEach(function(r,i){var me=r.device===m.dev;h+='<p style="margin:4px 0;'+(me?'font-weight:700;color:var(--gold)':'')+'">'+(i+1)+'. '+esc(r.name)+(me?' (you)':'')+' · '+(r.act>ACTS?'depth '+r.act+', round '+r.step:'act '+r.act+', step '+r.step)+' <span class="muted">· '+r.wins+' fights</span></p>';});
     if(m.q.some(function(x){return x.e;}))h+='<p class="muted">Your latest run is waiting to be sent.</p>';
-    dialog(h,[{html:'<b>Change my name</b>',fn:function(){lbAskName(function(){lbShowDeep(back);});}},{html:'<b>Back</b>',fn:back}],true,false);
+    var nv=[];if(asc>0)nv.push({html:'<b>Lower ascension</b><span>'+lbAscName(asc-1)+'</span>',fn:function(){lbShowDeep(back,asc-1);}});if(asc<mx)nv.push({html:'<b>Higher ascension</b><span>'+lbAscName(asc+1)+'</span>',fn:function(){lbShowDeep(back,asc+1);}});
+    dialog(h,nv.concat([{html:'<b>Change my name</b>',fn:function(){lbAskName(function(){lbShowDeep(back,asc);});}},{html:'<b>Back</b>',fn:back}]),true,false);
   },function(){dialog('<h2>Deepest runs</h2><p>The leaderboard could not be reached. Check your connection and try again.</p>',[{html:'<b>Back</b>',fn:back}],true,false);});}
 function lbHub(){var m=lbMeta();if(!m.name&&m.q.length&&!window.__lbAsked){window.__lbAsked=1;return lbAskName(lbHub,'Pick a name to post your score on the leaderboard. Your result is waiting.');}
   dialog('<h2>Leaderboards</h2><p class="muted">Top 10 players.</p>',[
@@ -2327,7 +2329,7 @@ function undoBuy(i){if(busy())return;
 function rerollCost(){return Math.max(0,1+(G.rr||0)-(upg('haggle')?1:0)-(cmd('dole')?1:0)+(DAILY&&DAILY.twist.rerollPlus||0));}
 function reroll(){if(phase!=='prep'||busy())return;var c=rerollCost();if(G.gold<c)return toast('Not enough gold');G.gold-=c;G.rr=(G.rr||0)+1;G.frozen=false;rollMarket();afterChange();}
 /* frozen market carries over to the next fight unchanged (sold cards stay sold) */
-function restock(){if(G.frozen){G.frozen=false;G.shop.forEach(function(o){o.undo=null;});return;}rollMarket();}
+function restock(){if(G.frozen){G.frozen=false;G.shop.forEach(function(o){o.undo=null;});return;}G.rr=0;rollMarket();}
 function toggleFreeze(){if(phase!=='prep'||busy())return;G.frozen=!G.frozen;toast(G.frozen?'Market frozen for the next fight':'Market unfrozen');afterChange();}
 function sellHero(uid){if(busy())return;var h=heroByUid(uid);if(!h||phase!=='prep')return;if(G.party.length<=1)return toast('You need at least one hero');
   var v=sellValue(h),extra=0;h.items.forEach(function(k){if(G.stash.length<STASH)G.stash.push(k);else extra+=itemSellValue(k);});
@@ -2349,7 +2351,7 @@ function levelUp(h,done){SFX.play('level');
 /* ---------- flow ---------- */
 function startRun(){chooseAscension(function(a){chooseCommander(function(c){startRunAt(a,c);});});}
 function startRunAt(a,c){
-  G=newRunState(a);G.cmd=c||null;if(c==='bree')G.gold+=6;if(DAILY){G.dly=DAILY;dailyInit();}else{META.runs++;saveMeta();}STASH=3;
+  G=newRunState(a);G.cmd=c||null;if(c==='bree')G.gold+=6;if(DAILY){G.dly=DAILY;dailyInit();}else{META.runs++;META.lastAsc=a||0;saveMeta();}STASH=3;
   if(DAILY)dre('start');
   if(!DAILY&&upg('heir')){var hr=relicPool();G.relics.push(pick(hr));}
   var t12=heroPool().sort(function(){return rnd()-.5;}).slice(0,3+upg('scout'));
