@@ -620,7 +620,7 @@ var HEROES={
   paths:[{k:'gutter',n:'Gutter',d:'If Hellstep kills its target, Ashling casts it again at once (up to 3 times in a row).'},{k:'smoke',n:'Hellfire',cls2:'cast',d:'Hellstep explodes where she lands: 80 damage and 3 burn to every foe next to the target.'},{k:'pick',n:'Pickpocket',d:'Steals 1 gold with each Hellstep (up to 2 per fight).',eco:1}]},
  moss:{n:'Mother Moss',role:'Druid · support',spr:'druid',pw:1.19,th:['poison','shield'],hp:460,atk:18,as:.7,rng:3,arm:10,mana:55,
   ab:{n:'Bloom',d:'Heals every ally for 110.'},
-  paths:[{k:'rot',n:'Blight',cls2:'cast',d:'Bloom stops healing. Instead every foe loses 10% of its current health and takes 4 poison.'},{k:'bark',n:'Overgrowth',d:'Healing from Bloom past an ally\'s max health becomes a shield.'},{k:'grove',n:'Grove',d:'Bloom also makes every ally regenerate 2% of their max health each second for 5s.'}]},
+  paths:[{k:'rot',n:'Blight',cls2:'cast',d:'Bloom stops healing. Instead every foe loses 5% of its current health and takes 4 poison.'},{k:'bark',n:'Overgrowth',d:'Healing from Bloom past an ally\'s max health becomes a shield.'},{k:'grove',n:'Grove',d:'Bloom also makes every ally regenerate 2% of their max health each second for 5s.'}]},
  mire:{n:'Mire',role:'Lizardfolk · fighter',spr:'lizard',pw:1.04,th:['poison','bleed'],hp:530,atk:32,as:1.0,rng:1,arm:15,mana:60,
   ab:{n:'Venom Fang',d:'Bites for 100 damage, 4 poison and 2 bleed.'},
   paths:[{k:'toxin',n:'Toxin',d:'Venom Fang doubles the poison already on the target.'},{k:'hydra',n:'Hydra',d:'Venom Fang also bites two foes next to the target.'},{k:'scales',n:'Ambush',cls2:'ass',d:'Mire starts each fight hidden (foes cannot attack it) until it first attacks, and that attack deals triple damage.'}]},
@@ -1206,7 +1206,7 @@ function cast(S,u){
     if(p==='smoke'){within(S,t2,1-u.team,1).forEach(function(e){if(e!==t2){dmg(S,u,e,80*ap,'spell');addStatus(S,u,e,'burn',3);}});ev(S,{k:'aoe',q:t2.q,r:t2.r,rad:1,c:'#ff8a3d'});}
     if(p==='pick')earn(S,u,1,2);if(p==='gutter'&&t2.hp<=0&&(u.chain||0)<3)u.again=true;u.tgt=t2.hp>0?t2:null;break;}
   case 'moss':{nm='Bloom';
-    if(p==='rot'){nm='Blight';foes.forEach(function(e){dmg(S,u,e,e.hp*.1,'spell');addStatus(S,u,e,'poison',4);});ev(S,{k:'aoe',q:u.q,r:u.r,rad:4,c:'#7ad04a'});break;}
+    if(p==='rot'){nm='Blight';foes.forEach(function(e){dmg(S,u,e,e.hp*.05,'spell');addStatus(S,u,e,'poison',4);});ev(S,{k:'aoe',q:u.q,r:u.r,rad:4,c:'#7ad04a'});break;}
     ally.forEach(function(a){var want=110*ap,g=heal(S,u,a,want);if(p==='bark'&&want-g>1)giveShield(S,a,(want-g)*.8);if(p==='grove')a.buffs.push({until:S.tick+50,regen:.02});});
     ev(S,{k:'aoe',q:u.q,r:u.r,rad:4,c:'#9ad870'});break;}
   case 'mire':{nm='Venom Fang';if(hdist(u,tg)>1)return;var ts2=[tg];if(p==='hydra')within(S,tg,1-u.team,1).filter(function(e){return e!==tg;}).slice(0,2).forEach(function(e){ts2.push(e);});
@@ -1899,17 +1899,17 @@ function dailyShop(cfg,plan,second){
       dialog(dHead(cfg,plan,esc(HEROES[k].n)+': pick a path'),HEROES[k].paths.map(function(pp){return {html:'<b>'+esc(pp.n)+'</b><span>'+esc(pp.d)+'</span>',fn:function(){plan.train[k]={lv:3,perk:p.k,path:pp.k};trainList();}};}),true);}};}).concat([{html:'<b>Back</b>',fn:function(){trainOpts(k);}}]),true);};
   var boosts=function(){var ch=[];
     cfg.bk.forEach(function(k){var u=UPGRADES.filter(function(x){return x.k===k;})[0],n=plan.boosts[k]||0,pr=cfg.boosts[k].price,mx=pr.length;
-      ch.push({html:'<div class="row"><img src="'+glyphURL(u.g,3)+'" alt=""></div><b>'+esc(u.n)+'</b><span>'+esc(u.d)+'</span><small>'+(n>=mx?'Bought'+(mx>1?' (all '+mx+' levels)':''):'Buy for '+pr[n]+(mx>1?' · level '+(n+1)+' of '+mx:''))+(n&&n<mx?' · owned '+n:'')+'</small>',
-        fn:function(){if(n>=mx)toast('Already bought. Use Take back below.');else if(left()<pr[n])toast('Not enough budget');else plan.boosts[k]=n+1;boosts();}});
-      if(n)ch.push({html:'<b>Take back '+esc(u.n)+'</b><small>Refund '+pr[n-1]+(n>1?' (one level)':'')+'</small>',cls:'sellc',fn:function(){if(n>1)plan.boosts[k]=n-1;else delete plan.boosts[k];boosts();}});});
+      ch.push({html:'<div class="row"><img src="'+glyphURL(u.g,3)+'" alt=""></div><b>'+esc(u.n)+'</b><span>'+esc(u.d)+'</span><small>'+(n>=mx?'Bought'+(mx>1?' (all '+mx+' levels)':'')+' · tap to take back':'Buy for '+pr[n]+(mx>1?' · level '+(n+1)+' of '+mx:''))+(n&&n<mx?' · owned '+n+(left()<pr[n]?' · tap to take back':''):'')+'</small>',
+        fn:function(){if(n>=mx||(n&&left()<pr[n]))delete plan.boosts[k];else if(left()<pr[n])toast('Not enough budget');else plan.boosts[k]=n+1;boosts();}});
+      });
     ch.push({html:'<b>Back</b>',fn:hub});
-    dialog(dHead(cfg,plan,'Starting boosts')+'<p class="muted">Today\'s stock and prices. Tap one to buy the next level. Bought ones show a Take back line under them.</p>',ch,true);};
+    dialog(dHead(cfg,plan,'Starting boosts')+'<p class="muted">Today\'s stock and prices. Tap one to buy the next level. Tap a fully bought one to take it all back.</p>',ch,true);};
   var relics=function(){var ks=RELIC_KEYS.filter(function(k){return k!=='hoard';});
     dialog(dHead(cfg,plan,'Pick your relic')+'<p class="muted">Costs '+cfg.relicPrice+' today. You start with it.</p>',[{html:'<b>No starting relic</b>',fn:function(){plan.relic=null;hub();}}].concat(ks.map(function(k){var r=RELICS[k];
       return {html:'<div class="row"><img src="'+glyphURL(r.g,4)+'" alt=""></div><b>'+esc(r.n)+(plan.relic===k?' <span class="muted">chosen</span>':'')+'</b><span>'+esc(r.d)+'</span>',fn:function(){if(!plan.relic&&left()<cfg.relicPrice){toast('Not enough budget');return relics();}plan.relic=k;hub();}};})).concat([back()]),true);};
   hub=function(){var bn=Object.keys(plan.boosts).reduce(function(a,k){return a+plan.boosts[k];},0);
     dialog(dHead(cfg,plan,'Daily Gambit · '+dailyLabel(cfg.date))+'<p><b>Today\'s twist: '+esc(cfg.twist.n)+'.</b> '+esc(cfg.twist.d)+'</p><p><b>Today\'s commander: '+esc(cmdDef(cfg.cmd).n)+'.</b> '+esc(cmdDef(cfg.cmd).d)+'</p>'+(cfg.asc?'<p>Ascension '+cfg.asc+'.</p>':'')+'<p><b>Daily foes:</b> all foes have 10% more health and deal 10% more damage.</p>',[
-      {html:'<b>Heroes</b><span>Swap and train.</span><small>'+(plan.swaps.length+Object.keys(plan.train).length)+' bought</small>',fn:heroes},
+      {html:'<b>Heroes</b><span>View and edit roster</span><small>'+(plan.swaps.length+Object.keys(plan.train).length)+' bought</small>',fn:heroes},
       {html:'<b>Starting boosts</b><span>Gold, market and more.</span><small>'+bn+' bought</small>',fn:boosts},
       {html:'<b>Relic</b><span>'+(plan.relic?esc(RELICS[plan.relic].n):'None picked')+'</span>',fn:relics},
       {html:'<b>Begin the run</b><span>One run only. Unspent budget is lost.'+(second?' This second attempt costs 100 of your Renown.':'')+'</span>',cls:'go',fn:function(){
@@ -1934,14 +1934,47 @@ function dailyScore(act,step){return act*10+step;}
 /* beating the act 3 boss does not end the daily: the run goes straight on into the Endless Deep and ends when the party falls */
 function dailyVictory(){G.cleared=true;G.endless=true;SFX.play('win');
   dialog('<h2>The Pale Sovereign is destroyed</h2><p>The Daily Gambit goes on: you descend into the Endless Deep. The acts keep getting harder, and the run ends when your party falls. How deep can you get?</p>',[{html:'<b>Descend</b>',fn:function(){startBonus();}}],true,true);}
+
+/* ---------- online leaderboard (Supabase) ---------- */
+var LB_URL='https://bbawfdqrxqfeqadcfdqj.supabase.co',LB_KEY='sb_publishable_owcLW7JcSGVvUIcfvNYRuQ_G0arZB9Z';
+var LB_BAD=['fuck','shit','bitch','cunt','nigg','fagg','slut','whore','rape','nazi','hitler','dick','cock','pussy','asshole','retard'];
+function lbMeta(){if(!META.lb)META.lb={dev:'',name:'',q:[]};var m=META.lb;
+  if(!m.dev){var u='';try{u=crypto.randomUUID();}catch(e){}if(!u)u='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return (c==='x'?r:(r&3|8)).toString(16);});m.dev=u;saveMeta();}
+  if(!m.q)m.q=[];return m;}
+function lbCleanName(s){s=String(s||'').replace(/[^A-Za-z0-9 _.\-]/g,'').replace(/\s+/g,' ').trim().slice(0,16);return s;}
+function lbNameOk(s){var t=s.toLowerCase().replace(/[^a-z]/g,'');return LB_BAD.every(function(w){return t.indexOf(w)<0;});}
+function lbFetch(path,opt){var c=typeof AbortController!=='undefined'?new AbortController():null,tm=setTimeout(function(){if(c)c.abort();},8000);opt=opt||{};opt.headers={'apikey':LB_KEY,'Authorization':'Bearer '+LB_KEY,'Content-Type':'application/json'};if(c)opt.signal=c.signal;
+  return fetch(LB_URL+path,opt).then(function(r){clearTimeout(tm);if(!r.ok)throw new Error('http '+r.status);return r.text().then(function(t){return t?JSON.parse(t):null;});},function(e){clearTimeout(tm);throw e;});}
+/* queue a result and try to send everything waiting; never blocks or throws */
+function lbQueue(day,res){try{var m=lbMeta(),q=m.q,i,ex=null;for(i=0;i<q.length;i++)if(q[i].day===day)ex=q[i];
+  var s=dailyScore(res.act,res.step);if(!ex)q.push({day:day,act:res.act,step:res.step,wins:res.wins});else if(s>dailyScore(ex.act,ex.step)){ex.act=res.act;ex.step=res.step;ex.wins=res.wins;}saveMeta();lbFlush();}catch(e){}}
+var lbBusy=false;
+function lbFlush(){try{var m=lbMeta();if(lbBusy||!m.q.length||!m.name)return;lbBusy=true;var it=m.q[0];
+  lbFetch('/rest/v1/rpc/submit_daily',{method:'POST',body:JSON.stringify({p_day:it.day,p_device:m.dev,p_name:m.name,p_act:it.act,p_step:it.step,p_wins:it.wins})}).then(function(){m.q.shift();saveMeta();lbBusy=false;lbFlush();},function(e){lbBusy=false;if(/http 4/.test(String(e&&e.message))){m.q.shift();saveMeta();lbFlush();}});}catch(e){lbBusy=false;}}
+function lbAskName(next,msg){var m=lbMeta();window.__lbn=m.name||'';
+  dialog('<h2>Leaderboard name</h2><p class="muted">'+(msg||'This is shown next to your Daily Gambit scores. Up to 16 letters, numbers or spaces.')+'</p><input id="lbname" type="text" maxlength="16" value="'+esc(m.name)+'" oninput="window.__lbn=this.value" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin:6px 0">',
+    [{html:'<b>Save name</b>',fn:function(){var n=lbCleanName(window.__lbn);
+      if(n.length<2)return lbAskName(next,'Use at least 2 letters or numbers.');if(!lbNameOk(n))return lbAskName(next,'That name is not allowed. Please pick another.');
+      m.name=n;saveMeta();lbFlush();next();}},{html:'<b>Not now</b>',fn:next}],true,false);
+  setTimeout(function(){var i=document.getElementById('lbname');if(i)i.focus();},50);}
+function lbShow(R,back){dialog('<h2>Leaderboard · '+dailyLabel(R.date)+'</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);
+  lbFlush();var m=lbMeta();
+  lbFetch('/rest/v1/daily_scores?day=eq.'+encodeURIComponent(R.date)+'&select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=50').then(function(rows){
+    var h='<h2>Leaderboard · '+dailyLabel(R.date)+'</h2>';
+    if(!rows||!rows.length)h+='<p class="muted">No scores yet today. Be the first.</p>';
+    else{h+='<div style="max-height:52vh;overflow:auto">';rows.forEach(function(r,i){var me=r.device===m.dev;
+      h+='<p style="margin:4px 0;'+(me?'font-weight:700;color:var(--gold)':'')+'">'+(i+1)+'. '+esc(r.name)+(me?' (you)':'')+' · '+(r.act>ACTS?'depth '+r.act+', round '+r.step:'act '+r.act+', step '+r.step)+' <span class="muted">· '+r.wins+' fights</span></p>';});h+='</div>';}
+    if(m.q.length)h+='<p class="muted">Your latest result is waiting to be sent.</p>';
+    dialog(h,[{html:'<b>Change my name</b>',fn:function(){lbAskName(function(){lbShow(R,back);});}},{html:'<b>Back</b>',fn:back}],true,false);
+  },function(){dialog('<h2>Leaderboard</h2><p>The leaderboard could not be reached. Check your connection and try again. Your results are saved and will be sent later.</p>',[{html:'<b>Back</b>',fn:back}],true,true);});}
 function dailyEnd1(kind,report){phase='over';try{localStorage.removeItem('dd1_daily');}catch(e){}
   var win=!!G.cleared;var rn=finishRun();
   var res={w:win?1:0,k:kind,wins:G.stats.wins,act:G.act,step:G.step,hp:Math.max(0,Math.round(G.hp)),party:G.party.map(function(h){return [h.hid,h.lv];}),log:G.dly.log||'',asc:G.asc||0};
   res.score=dailyScore(res.act,res.step);
-  var R=dailyRec();R.att.push(res);R.active=false;R.plan=null;saveMeta();renderAll();
+  var R=dailyRec();R.att.push(res);R.active=false;R.plan=null;saveMeta();renderAll();if(kind!=='quit'||res.score>0)lbQueue(R.date,res);
   var xp=xpSummary(),head=kind==='quit'?'You gave up the Daily Gambit':'Your party has fallen';
   dialog('<h2>'+head+'</h2><p>Daily Gambit, '+dailyLabel(R.date)+': '+(res.act>ACTS?'cleared all three acts and reached depth '+res.act+' of the Deep, round '+res.step:'reached act '+res.act+', step '+res.step)+'. Fights won: '+res.wins+'.</p><p>You earn <b style="color:var(--gold)">'+rn+' Renown</b> (you have '+META.renown+').</p>'+xp+(report&&kind!=='quit'?report:''),
-    [{html:'<b>Results and share</b>',fn:function(){G=null;dailyLeave();dailyMenu();}},{html:'<b>Back to the title</b>',fn:function(){G=null;showTitle();}}],true,true);}
+    [{html:'<b>Results and share</b>',fn:function(){G=null;dailyLeave();if(!lbMeta().name)lbAskName(dailyMenu);else dailyMenu();}},{html:'<b>Back to the title</b>',fn:function(){G=null;showTitle();}}],true,true);}
 function dailyShare(R){var b=dailyBest(R);if(!b)return '';var E={w:'🟩',l:'🟥',B:'🟨'},rows=[],i,lg=b.log||'';
   for(i=0;i<lg.length;i+=7)rows.push(lg.slice(i,i+7).split('').map(function(c){return E[c]||'⬛';}).join(''));
   return 'Dungeon Gambit · Daily Gambit · '+dailyLabel(R.date)+'\n'+(b.act>ACTS?'🏆 Cleared all three acts, fell at depth '+b.act+', round '+b.step+' of the Deep':'💀 Fell in act '+b.act+', step '+b.step)+'\nFights won: '+b.wins+(R.att.length>1?' (best of 2)':'')+'\n'+rows.join('\n')+'\nhttps://archdevious.github.io/dungeon-gambit/';}
@@ -1949,10 +1982,10 @@ function dailyCopy(t){var ok=false;try{if(navigator.clipboard&&navigator.clipboa
   if(!ok){try{var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();ok=document.execCommand('copy');document.body.removeChild(ta);}catch(e){}}
   toast(ok?'Copied to the clipboard':'Could not copy');}
 /* ---------- the menu ---------- */
-function dailyMenu(){
+function dailyMenu(){try{lbFlush();}catch(e){}
   if(META.wins<1){dialog('<h2>Daily Gambit</h2><p>A new seeded challenge every day, the same for everyone. Beat the act 3 boss once to unlock it.</p>',[{html:'<b>Back</b>',fn:showTitle}],true,true);return;}
   var R=dailyRec(),cfg=dailyCfg(R.date),ch=[],best=dailyBest(R);
-  var sum='<h2>Daily Gambit · '+dailyLabel(R.date)+'</h2><p><b>Twist: '+esc(cfg.twist.n)+'.</b> '+esc(cfg.twist.d)+'</p><p><b>Commander: '+esc(cmdDef(cfg.cmd).n)+'.</b> '+esc(cmdDef(cfg.cmd).d)+'</p><p class="muted">Budget '+cfg.budget+' Renown'+(cfg.asc?' · Ascension '+cfg.asc:'')+'. Level 1 heroes, no Camp upgrades or mastery. One run a day, no restarts. Everyone has the same seed. The deepest run is the daily winner.</p>';
+  var sum='<h2>Daily Gambit · '+dailyLabel(R.date)+'</h2><p><b>Twist: '+esc(cfg.twist.n)+'.</b> '+esc(cfg.twist.d)+'</p><p><b>Commander: '+esc(cmdDef(cfg.cmd).n)+'.</b> '+esc(cmdDef(cfg.cmd).d)+'</p><p><b>Daily foes:</b> all foes have 10% more health and deal 10% more damage.</p><p class="muted">Budget '+cfg.budget+' Renown'+(cfg.asc?' · Ascension '+cfg.asc:'')+'. Level 1 heroes, no Camp upgrades or mastery. One run a day, no restarts. Everyone has the same seed. The deepest run is the daily winner.</p>';
   R.att.forEach(function(a,i){sum+='<p>Attempt '+(i+1)+': '+(a.act>ACTS?'<b>Reached depth '+a.act+', round '+a.step+' of the Deep</b>':'Fell in act '+a.act+', step '+a.step)+' · fights won '+a.wins+(best===a&&R.att.length>1?' <span class="muted">(best)</span>':'')+'</p>';});
   if(R.active){
     ch.push({html:'<b>Continue your run</b>',fn:function(){var sv=dailyLoad();if(sv){G=sv;DAILY=G.dly;resumeRun();}else if(R.plan){dailyLaunch(R.plan);}else{R.active=false;saveMeta();dailyMenu();}}});
@@ -1962,6 +1995,7 @@ function dailyMenu(){
   }else if(R.att.length<2){
     ch.push(META.renown>=100?{html:'<b>Second attempt</b><span>Costs 100 Renown. Same seed and twist, a fresh budget. The better run counts.</span>',fn:function(){dailyShop(cfg,dNewPlan(),true);}}:{html:'<b>Second attempt</b><small>Needs 100 Renown (you have '+META.renown+')</small>',cls:'dis',fn:function(){dailyMenu();}});
   }else sum+='<p class="muted">Both attempts used. A new challenge arrives at midnight.</p>';
+  ch.push({html:'<b>Leaderboard</b><span>Today\'s top 50.</span>',fn:function(){lbShow(R,dailyMenu);}});
   if(best)ch.push({html:'<b>Copy result to share</b>',fn:function(){dailyCopy(dailyShare(R));dailyMenu();}});
   ch.push({html:'<b>Back</b>',fn:showTitle});
   dialog(sum,ch,true);}
