@@ -2080,7 +2080,7 @@ function prep(){var G=d.G,n=0,acted=false;
   while(n++<14){if(dlg())return 'dlg';
     var best=-1,bi=-1,bsc=-1e9;
     G.shop.forEach(function(o,i){if(o.sold)return;var p=d.priceOf(o);if(p>G.gold)return;var sc=offerScore(o);var v=sc-(p*.15);if(sc>=CFG.buyMin&&v>bsc){bsc=v;bi=i;}});
-    if(bi>=0){var oo=G.shop[bi];LOG.push('BUY '+oo.type+':'+oo.key+' '+d.priceOf(oo)+'g (gold '+G.gold+')');d.buy(bi);acted=true;if(dlg())return 'dlg';continue;}
+    if(bi>=0){var oo=G.shop[bi];LOG.push('BUY '+oo.type+':'+oo.key+' '+d.priceOf(oo)+'g (gold '+G.gold+')');d.buy(bi);acted=true;if(dlg())return 'dlg';if(CFG.oneAct){placeAll();d.renderAll();return 'acted';}continue;}
     // reroll if rich enough
     var rc=(typeof d.rerollCost==='function')?d.rerollCost():1;
     if(G.gold>=rc+CFG.rerollGold&&(G.rr||0)<CFG.rerollMax){var g0=G.gold;LOG.push('REROLL '+rc+'g');d.reroll();acted=true;continue;}
@@ -2092,21 +2092,25 @@ function tick(){var D=dlg();if(!d.G)return {s:'nog'};
   if(d.phase==='prep'){var r=prep();if(r==='dlg')return {s:'dlg',log:LOG.splice(0)};
     var G=d.G;var a=G.act,s=G.step,gold=G.gold,hp=G.hp;var win=fight();LOG.push('FIGHT a'+a+'s'+s+' '+(win?'W':'L')+' hp'+Math.round(G.hp)+' party'+G.party.map(function(h){return h.hid+h.lv}).join(',')+' gold'+gold);return {s:'fight',log:LOG.splice(0)};}
   return {s:'wait'};}
+var idle=0;
 function live(){var D=dlg();
   if(D){handleDialog(D);}
-  else if(d.G&&d.phase==='prep'){var r=prep();if(r!=='dlg'){placeAll();d.renderAll();d.startFight();}}
+  else if(d.G&&d.phase==='prep'){var r=prep();if(r==='acted'||r==='dlg'){idle=0;}else{placeAll();d.renderAll();if(++idle>=2){idle=0;LOG.push('--- fight ---');d.startFight();}}}
   return {log:LOG.splice(0)};}
 return {cfg:CFG,tick:tick,live:live};
 
 }
 /* ---------- watch the bot play (a normal run that is never saved and earns nothing) ---------- */
-var botTimer=null,botFeed=[],BOT_MS=900;
+var botTimer=null,botFeed=[],BOT_MS=2200,botSpd=0,botBot=null;
+function botSpeed(){botSpd=(botSpd+1)%3;BOT_MS=[2200,1200,500][botSpd];var s=document.getElementById('botspd');if(s)s.textContent='Speed: '+['slow','medium','fast'][botSpd];clearInterval(botTimer);botTimer=setInterval(botTick,BOT_MS);}
+function botTick(){try{botBot.live().log.forEach(botFeedAdd);}catch(e){botFeedAdd('bot error: '+e.message);}}
 function botFeedAdd(s){botFeed.push(s);if(botFeed.length>10)botFeed.shift();var p=document.getElementById('botfeed');if(p)p.innerHTML=botFeed.map(esc).join('<br>');}
-function botPanel(on){var a=document.getElementById('botfeed'),b=document.getElementById('botstop');if(a)a.remove();if(b)b.remove();if(!on)return;
+function botPanel(on){var a=document.getElementById('botfeed'),b=document.getElementById('botstop'),c0=document.getElementById('botspd');if(a)a.remove();if(b)b.remove();if(c0)c0.remove();if(!on)return;
   a=document.createElement('div');a.id='botfeed';a.style.cssText='position:fixed;left:8px;bottom:8px;max-width:min(420px,75vw);font:12px/1.35 monospace;background:rgba(0,0,0,.78);color:#eee;padding:6px 8px;border-radius:6px;z-index:99999;pointer-events:none';document.body.appendChild(a);
-  b=document.createElement('button');b.id='botstop';b.type='button';b.textContent='Stop the bot';b.style.cssText='position:fixed;right:8px;top:8px;z-index:99999;padding:8px 12px;font-size:14px';b.onclick=botStop;document.body.appendChild(b);}
+  b=document.createElement('button');b.id='botstop';b.type='button';b.textContent='Stop the bot';b.style.cssText='position:fixed;right:8px;top:8px;z-index:99999;padding:8px 12px;font-size:14px';b.onclick=botStop;document.body.appendChild(b);
+  var c=document.createElement('button');c.id='botspd';c.type='button';c.textContent='Speed: slow';c.style.cssText='position:fixed;right:8px;top:48px;z-index:99999;padding:8px 12px;font-size:14px';c.onclick=botSpeed;document.body.appendChild(c);}
 function botLiveStart(){if(BOTON)return;BOTON=true;BOTMETA=JSON.stringify(META);botFeed=[];var bot=botLiveMake();bot.cfg.rerollMax=0;bot.cfg.relicAll=1;bot.cfg.dupe=8;bot.cfg.restBelow=.85;bot.cfg.parity=1;botPanel(true);botFeedAdd('The bot is playing a normal run. Nothing is saved and no Renown is earned.');
-  startRun();botTimer=setInterval(function(){try{bot.live().log.forEach(botFeedAdd);}catch(e){botFeedAdd('bot error: '+e.message);}},BOT_MS);}
+  botBot=bot;bot.cfg.oneAct=true;botSpd=0;BOT_MS=2200;startRun();botTimer=setInterval(botTick,BOT_MS);}
 function botEnd(){clearInterval(botTimer);botTimer=null;botPanel(false);BOTON=false;try{META=JSON.parse(BOTMETA);}catch(e){}G=null;showTitle();}
 function botStop(){botEnd();}
 function botOver(report){clearInterval(botTimer);botTimer=null;phase='over';var s=G.stats||{};renderAll();
