@@ -1427,7 +1427,7 @@ function statFight(win,boss){try{var s=ST(),T=S.stt[0],n=0,k;if(win){s.fw++;if(b
   saveMeta();}catch(e){}}
 function statBonus(room,kills,secs){try{var s=ST(),b=s.bn[room]=s.bn[room]||{n:0,best:0,tot:0};b.n++;b.tot+=kills;if(secs>(b.long||0))b.long=secs;if(kills>b.best)b.best=kills;saveMeta();}catch(e){}}
 function statGold(n){try{ST().gold+=n;}catch(e){}}
-function finishRun(){if(!G||G.renownDone)return 0;G.renownDone=true;try{var s=ST();(G.relics||[]).forEach(function(k){s.rel[k]=(s.rel[k]||0)+1;});}catch(e){}var r=renownFor();META.renown+=r;META.earned+=r;commitXP();
+function finishRun(){if(!G||G.renownDone)return 0;G.renownDone=true;if(!G.dly&&!BOTON){try{lbEndlessCheck(G);}catch(e){}}try{var s=ST();(G.relics||[]).forEach(function(k){s.rel[k]=(s.rel[k]||0)+1;});}catch(e){}var r=renownFor();META.renown+=r;META.earned+=r;commitXP();
   if(G.endless&&G.act>META.bestDeep)META.bestDeep=G.act;saveMeta();return r;}
 /* foe scaling from ascension (applied to fresh units) */
 function ascFoes(units){units.forEach(function(u){var hm=1,am=1;if(DAILY){hm*=1.1+((DAILY.twist.fHp||1)-1);am*=1.1+((DAILY.twist.fAtk||1)-1);}
@@ -1949,10 +1949,11 @@ function lbFetch(path,opt){var c=typeof AbortController!=='undefined'?new AbortC
 function lbQueue(day,res){try{var m=lbMeta(),q=m.q,i,ex=null;for(i=0;i<q.length;i++)if(q[i].day===day)ex=q[i];
   var s=dailyScore(res.act,res.step);if(!ex)q.push({day:day,act:res.act,step:res.step,wins:res.wins});else if(s>dailyScore(ex.act,ex.step)){ex.act=res.act;ex.step=res.step;ex.wins=res.wins;}saveMeta();lbFlush();}catch(e){}}
 var lbBusy=false;
+function lbFlushOne(it,m){var e=!!it.e;return lbFetch(e?'/rest/v1/rpc/submit_endless':'/rest/v1/rpc/submit_daily',{method:'POST',body:JSON.stringify(e?{p_device:m.dev,p_name:m.name,p_act:it.act,p_step:it.step,p_wins:it.wins}:{p_day:it.day,p_device:m.dev,p_name:m.name,p_act:it.act,p_step:it.step,p_wins:it.wins})});}
 function lbFlush(){try{var m=lbMeta();if(lbBusy||!m.name||(!m.q.length&&!m.rn))return;
-  if(m.rn){lbBusy=true;lbFetch('/rest/v1/rpc/rename_daily',{method:'POST',body:JSON.stringify({p_device:m.dev,p_name:m.name})}).then(function(){m.rn=false;saveMeta();lbBusy=false;lbFlush();},function(){lbBusy=false;});return;}
+  if(m.rn){lbBusy=true;lbFetch('/rest/v1/rpc/rename_daily',{method:'POST',body:JSON.stringify({p_device:m.dev,p_name:m.name})}).then(function(){m.rn=false;saveMeta();lbBusy=false;lbFlush();},function(){m.rn=false;saveMeta();lbBusy=false;lbFlush();});return;}
   lbBusy=true;var it=m.q[0];
-  lbFetch('/rest/v1/rpc/submit_daily',{method:'POST',body:JSON.stringify({p_day:it.day,p_device:m.dev,p_name:m.name,p_act:it.act,p_step:it.step,p_wins:it.wins})}).then(function(){m.q.shift();saveMeta();lbBusy=false;lbFlush();},function(e){lbBusy=false;if(/http 4/.test(String(e&&e.message))){m.q.shift();saveMeta();lbFlush();}});}catch(e){lbBusy=false;}}
+  lbFlushOne(it,m).then(function(){m.q.shift();saveMeta();lbBusy=false;lbFlush();},function(e){lbBusy=false;if(/http 4/.test(String(e&&e.message))){m.q.shift();saveMeta();lbFlush();}});}catch(e){lbBusy=false;}}
 function lbAskName(next,msg){var m=lbMeta();window.__lbn=m.name||'';
   dialog('<h2>Leaderboard name</h2><p class="muted">'+(msg||'This is shown next to your Daily Gambit scores. Up to 16 letters, numbers or spaces.')+'</p><input id="lbname" type="text" maxlength="16" value="'+esc(m.name)+'" oninput="window.__lbn=this.value" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin:6px 0">',
     [{html:'<b>Save name</b>',fn:function(){var n=lbCleanName(window.__lbn);
@@ -1963,7 +1964,7 @@ function lbShift(day,n){var p=day.split('-'),t=new Date(Date.UTC(+p[0],+p[1]-1,+
 function lbShow(R,back,day){day=day||R.date;var tod=dailyKey(),nav=function(){var c=[];c.push({html:'<b>Previous day</b>',fn:function(){lbShow(R,back,lbShift(day,-1));}});if(day<tod)c.push({html:'<b>Next day</b>',fn:function(){lbShow(R,back,lbShift(day,1));}});return c;};
   dialog('<h2>Leaderboard · '+dailyLabel(day)+'</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);
   lbFlush();var m=lbMeta();
-  lbFetch('/rest/v1/daily_scores?day=eq.'+encodeURIComponent(day)+'&select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=50').then(function(rows){
+  lbFetch('/rest/v1/daily_scores?day=eq.'+encodeURIComponent(day)+'&select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
     var h='<h2>Leaderboard · '+dailyLabel(day)+(day===tod?' (today)':'')+'</h2>';
     if(!rows||!rows.length)h+='<p class="muted">No scores'+(day===tod?' yet today. Be the first.':' for this day.')+'</p>';
     else{h+='<div style="max-height:52vh;overflow:auto">';rows.forEach(function(r,i){var me=r.device===m.dev;
@@ -1971,6 +1972,30 @@ function lbShow(R,back,day){day=day||R.date;var tod=dailyKey(),nav=function(){va
     if(m.q.length)h+='<p class="muted">Your latest result is waiting to be sent.</p>';
     dialog(h,nav().concat([{html:'<b>Change my name</b>',fn:function(){lbAskName(function(){lbShow(R,back,day);});}},{html:'<b>Back</b>',fn:back}]),true,false);
   },function(){dialog('<h2>Leaderboard</h2><p>The leaderboard could not be reached. Check your connection and try again. Your results are saved and will be sent later.</p>',nav().concat([{html:'<b>Back</b>',fn:back}]),true,false);});}
+
+/* ---------- deepest runs (standard play) ---------- */
+function lbScoreOf(act,step){return act*10+step;}
+function lbQueueE(res){try{var m=lbMeta(),q=m.q,i,ex=null;for(i=0;i<q.length;i++)if(q[i].e)ex=q[i];
+  if(!ex)q.push({e:1,act:res.act,step:res.step,wins:res.wins});else if(lbScoreOf(res.act,res.step)>lbScoreOf(ex.act,ex.step)){ex.act=res.act;ex.step=res.step;ex.wins=res.wins;}saveMeta();lbFlush();}catch(e){}}
+/* called when a standard run ends: if it beats your own best and would make the top 10, send it */
+function lbEndlessCheck(g){try{var m=lbMeta(),sc=lbScoreOf(g.act,g.step),res={act:g.act,step:g.step,wins:(g.stats&&g.stats.wins)||0};
+  if(sc<=(m.eBest||0))return;
+  lbFetch('/rest/v1/endless_scores?select=score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
+    if(rows&&rows.length>=10&&sc<=rows[9].score)return;
+    m.eBest=sc;saveMeta();lbQueueE(res);if(!m.name){try{toast('This run is a top 10 deepest run! Open Leaderboards to set your name and post it.');}catch(e){}}},function(){});}catch(e){}}
+function lbShowDeep(back){var m=lbMeta();dialog('<h2>Deepest runs</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);lbFlush();
+  lbFetch('/rest/v1/endless_scores?select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
+    var h='<h2>Deepest runs</h2><p class="muted">Standard play, all your unlocked upgrades allowed. One entry per player, your best run.</p>';
+    if(!rows||!rows.length)h+='<p class="muted">No runs yet. Finish a run deep enough to be first.</p>';
+    else rows.forEach(function(r,i){var me=r.device===m.dev;h+='<p style="margin:4px 0;'+(me?'font-weight:700;color:var(--gold)':'')+'">'+(i+1)+'. '+esc(r.name)+(me?' (you)':'')+' · '+(r.act>ACTS?'depth '+r.act+', round '+r.step:'act '+r.act+', step '+r.step)+' <span class="muted">· '+r.wins+' fights</span></p>';});
+    if(m.q.some(function(x){return x.e;}))h+='<p class="muted">Your latest run is waiting to be sent.</p>';
+    dialog(h,[{html:'<b>Change my name</b>',fn:function(){lbAskName(function(){lbShowDeep(back);});}},{html:'<b>Back</b>',fn:back}],true,false);
+  },function(){dialog('<h2>Deepest runs</h2><p>The leaderboard could not be reached. Check your connection and try again.</p>',[{html:'<b>Back</b>',fn:back}],true,false);});}
+function lbHub(){var m=lbMeta();if(!m.name&&m.q.length&&!window.__lbAsked){window.__lbAsked=1;return lbAskName(lbHub,'Pick a name to post your score on the leaderboard. Your result is waiting.');}
+  dialog('<h2>Leaderboards</h2><p class="muted">Top 10 players.</p>',[
+    {html:'<b>Daily Gambit</b><span>Today\'s top 10.</span>',fn:function(){lbShow(dailyRec(),lbHub);}},
+    {html:'<b>Deepest runs</b><span>Standard play, all upgrades allowed.</span>',fn:function(){lbShowDeep(lbHub);}},
+    {html:'<b>Back</b>',fn:showTitle}],true,false);}
 function dailyEnd1(kind,report){phase='over';try{localStorage.removeItem('dd1_daily');}catch(e){}
   var win=!!G.cleared;var rn=finishRun();
   var res={w:win?1:0,k:kind,wins:G.stats.wins,act:G.act,step:G.step,hp:Math.max(0,Math.round(G.hp)),party:G.party.map(function(h){return [h.hid,h.lv];}),log:G.dly.log||'',asc:G.asc||0};
@@ -1986,7 +2011,7 @@ function dailyCopy(t){var ok=false;try{if(navigator.clipboard&&navigator.clipboa
   if(!ok){try{var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();ok=document.execCommand('copy');document.body.removeChild(ta);}catch(e){}}
   toast(ok?'Copied to the clipboard':'Could not copy');}
 /* ---------- the menu ---------- */
-function dailyMenu(){try{lbFlush();}catch(e){}
+function dailyMenu(){try{lbFlush();var lm=lbMeta();if(!lm.name&&lm.q.length&&!window.__lbAsked){window.__lbAsked=1;return lbAskName(dailyMenu,'Pick a name to put your Daily Gambit score on the leaderboard. Your result is waiting.');}}catch(e){}
   if(META.wins<1){dialog('<h2>Daily Gambit</h2><p>A new seeded challenge every day, the same for everyone. Beat the act 3 boss once to unlock it.</p>',[{html:'<b>Back</b>',fn:showTitle}],true,true);return;}
   var R=dailyRec(),cfg=dailyCfg(R.date),ch=[],best=dailyBest(R);
   var sum='<h2>Daily Gambit · '+dailyLabel(R.date)+'</h2><p><b>Twist: '+esc(cfg.twist.n)+'.</b> '+esc(cfg.twist.d)+'</p><p><b>Commander: '+esc(cmdDef(cfg.cmd).n)+'.</b> '+esc(cmdDef(cfg.cmd).d)+'</p><p><b>Daily foes:</b> all foes have 10% more health and deal 10% more damage.</p><p class="muted">Budget '+cfg.budget+' Renown'+(cfg.asc?' · Ascension '+cfg.asc:'')+'. Level 1 heroes, no Camp upgrades or mastery. One run a day, no restarts. Everyone has the same seed. The deepest run is the daily winner.</p>';
@@ -1999,7 +2024,7 @@ function dailyMenu(){try{lbFlush();}catch(e){}
   }else if(R.att.length<2){
     ch.push(META.renown>=100?{html:'<b>Second attempt</b><span>Costs 100 Renown. Same seed and twist, a fresh budget. The better run counts.</span>',fn:function(){dailyShop(cfg,dNewPlan(),true);}}:{html:'<b>Second attempt</b><small>Needs 100 Renown (you have '+META.renown+')</small>',cls:'dis',fn:function(){dailyMenu();}});
   }else sum+='<p class="muted">Both attempts used. A new challenge arrives at midnight.</p>';
-  ch.push({html:'<b>Leaderboard</b><span>Today\'s top 50.</span>',fn:function(){lbShow(R,dailyMenu);}});
+  ch.push({html:'<b>Leaderboard</b><span>Today\'s top 10.</span>',fn:function(){lbShow(R,dailyMenu);}});
   if(best)ch.push({html:'<b>Copy result to share</b>',fn:function(){dailyCopy(dailyShare(R));dailyMenu();}});
   ch.push({html:'<b>Back</b>',fn:showTitle});
   dialog(sum,ch,true);}
@@ -2564,6 +2589,7 @@ function showTitle(){dailyLeave();phase='menu';closeDialog();renderAll();
   ch.push({html:'<b>Daily Gambit</b>',fn:function(){dailyMenu();}});
   ch.push({html:'<b>Camp ('+META.renown+')</b>',fn:function(){showCamp(showTitle);}});
   ch.push({html:'<b>Stats</b>',fn:function(){showStats(showTitle);}});
+  ch.push({html:'<b>Leaderboards</b>',fn:lbHub});
   ch.push({html:'<b>Save transfer</b>',fn:function(){showTransfer();}});
   ch.push({html:'<b>How to play</b>',fn:function(){showGuide(showTitle);}});
   ch.push({html:'<b>Watch the bot</b>',fn:botLiveStart});
@@ -2584,9 +2610,9 @@ function homeScreen(ch,best){
   hin.appendChild(st);
   var bs=el('div','hbtns'),sm=[];
   var pr=[];
-  ch.forEach(function(c,i){var big=!/Stats|Save transfer|How to play|Watch the bot/.test(c.html);if(/Daily Gambit|Camp \(/.test(c.html)){pr.push(c);if(pr.length===2||ch.indexOf(c)===ch.length-1){var pw=el('div','hrow hrow2');pr.forEach(function(q){var pb=el('button','hb',q.html.replace(/<\/?b>/g,''));pb.type='button';pb.onclick=function(){closeDialog();q.fn();};pw.appendChild(pb);});bs.appendChild(pw);}return;}if(!big){sm.push(c);return;}
+  ch.forEach(function(c,i){var big=!/Stats|Leaderboards|Save transfer|How to play|Watch the bot/.test(c.html);if(/Daily Gambit|Camp \(/.test(c.html)){pr.push(c);if(pr.length===2||ch.indexOf(c)===ch.length-1){var pw=el('div','hrow hrow2');pr.forEach(function(q){var pb=el('button','hb',q.html.replace(/<\/?b>/g,''));pb.type='button';pb.onclick=function(){closeDialog();q.fn();};pw.appendChild(pb);});bs.appendChild(pw);}return;}if(!big){sm.push(c);return;}
     var b=el('button','hb'+(i===0?' p':''),c.html.replace(/<\/?b>/g,''));b.type='button';b.onclick=function(){closeDialog();c.fn();};bs.appendChild(b);});
-  var row=el('div','hrow');sm.forEach(function(c){var b=el('button','hb',c.html.replace(/<\/?b>/g,''));b.type='button';b.onclick=function(){closeDialog();c.fn();};row.appendChild(b);});bs.appendChild(row);
+  for(var ri=0;ri<sm.length;ri+=3){var row=el('div','hrow');sm.slice(ri,ri+3).forEach(function(c){var b=el('button','hb',c.html.replace(/<\/?b>/g,''));b.type='button';b.onclick=function(){closeDialog();c.fn();};row.appendChild(b);});bs.appendChild(row);}
   hin.appendChild(bs);if(best){hin.appendChild(el('div','hbest',best));}
   h.appendChild(hin);o.appendChild(h);o.hidden=false;o.scrollTop=0;dlgOpen=true;
   var z=Math.min(innerWidth/420,innerHeight/820,1.5);if(z<1||z>1.05){hin.style.zoom=z;var fl=h.querySelector('.hflr');if(fl)fl.style.setProperty('top',(580*z)+'px','important');}}
@@ -2934,7 +2960,7 @@ function boot(){
 }
 boot();
 window.__sprReady=function(){try{if(G)renderAll();}catch(e){}};
-window.__dd={drawUnit:drawUnit,rerollCost:rerollCost,MAXLV:MAXLV,priceOf:priceOf,itemCap:itemCap,TWISTS:TWISTS,dailyCfg:dailyCfg,dNewPlan:dNewPlan,dailyLaunch:dailyLaunch,dailyRec:dailyRec,dailyMenu:dailyMenu,dailyShare:dailyShare,getDAILY:function(){return DAILY;},makeSFX:makeSFX,SFX:SFX,rollMarket:rollMarket,renderAll:renderAll,showTitle:showTitle,showCamp:showCamp,SPR:SPR,spriteURL:spriteURL,SPRC:SPRC,SPRURL:SPRURL,showStats:showStats,ST:ST,endFight:endFight,startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
+window.__dd={finishRun:finishRun,drawUnit:drawUnit,rerollCost:rerollCost,MAXLV:MAXLV,priceOf:priceOf,itemCap:itemCap,TWISTS:TWISTS,dailyCfg:dailyCfg,dNewPlan:dNewPlan,dailyLaunch:dailyLaunch,dailyRec:dailyRec,dailyMenu:dailyMenu,dailyShare:dailyShare,getDAILY:function(){return DAILY;},makeSFX:makeSFX,SFX:SFX,rollMarket:rollMarket,renderAll:renderAll,showTitle:showTitle,showCamp:showCamp,SPR:SPR,spriteURL:spriteURL,SPRC:SPRC,SPRURL:SPRURL,showStats:showStats,ST:ST,endFight:endFight,startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
   startRun:startRun,undoBuy:undoBuy,nextFight:nextFight,enterPrep:enterPrep,startFight:startFight,skipFight:skipFight,endFight:endFight,buy:buy,reroll:reroll,sellHero:sellHero,
   closeDialog:closeDialog,showTitle:showTitle,genEncounter:genEncounter,placeHero:placeHero,afterChange:afterChange,boardCap:boardCap,onBoard:onBoard,inReserve:inReserve,
   showEventK:function(k,done){var e=EVENTS.filter(function(x){return x.k===k;})[0];var o=EVENTS;EVENTS=[e];showEvent(done);EVENTS=o;},TUNE:TUNE,HEROES:HEROES,PERKS:PERKS,ITEM_KEYS:ITEM_KEYS,RELIC_KEYS:RELIC_KEYS,HERO_KEYS:HERO_KEYS,genBoss:genBoss,ITEMS:ITEMS,RELICS:RELICS,heroUnit:heroUnit,mkSim:mkSim,simStep:simStep,foeUnits:foeUnits,themeCounts:themeCounts,foeThemes:foeThemes};
