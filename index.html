@@ -2005,11 +2005,20 @@ function botLiveMake(){
 var d=window.__dd, LOG=[], unknown={}, CFG={noPlace:false,bench:0,restBelow:.6,rerollGold:10,rerollMax:4,buyMin:6,spread:1.5,dupe:0,parity:0,relicAll:0,trainB:20,tankB:0,frontB:0};
 function log(s){LOG.push(s);}
 var SPELLITEM={book:10,echo:9,crystal:8,gcast:8,gsup:7};
-var ITEMP={book:10,echo:9,crystal:8,gcast:8,gsup:7,boots:6,sword:5,mail:5,garch:5,gass:5,gtank:5,gfight:5,fang:4,aegis:4,spikes:3,ember:5,shard:4,vial:5,serrate:4};
+var ITEMP={book:10,echo:9,crystal:8,gcast:8,gsup:7,boots:6,sword:5,mail:7,garch:5,gass:5,gtank:6,gfight:5,fang:4,aegis:7,spikes:6,ember:5,shard:4,vial:5,serrate:4};
 var RELICP={etome:12,loom:9,font:8,skull:8,glass:8,ccast:7,csup:6,crown:7,banner:6,whet:6,drum:6,feather:6,lantern:5,brand:5,heart:5,censer:5,chalice:4,tooth:5,carch:4,quiver:3,kit:4,belt:4,prism:4,pack:3,rear:3,vanguard:4,cannon:5,axe:4,horn:4,locket:3,bell:3,ctank:3,cfight:2,cass:3,coin:3,bulwark:3,briar:2,lonewolf:0,mason:0,hoard:0,lens:3};
 var HEROP={ember:10,nix:10,grisk:9,sable:8,kestrel:8,ashling:7,hale:7,moss:7,pyra:6,ylva:6,bramble:6,brandt:6,oda:6,thorne:5,vesk:6,mire:5,greymaw:5,cogs:5};
 var PERKP={arcana:10,focus:9,tough:7,haste:6,edge:5,plate:4,leech:4,a_burn:3,a_frost:2,a_poison:3,a_bleed:2,a_shield:2,a_thorns:1};
 var PATHP={'wildfire':9,'contagion':9,'hellfire':9,'lay on hands':8,'purify':6,'phoenix':7,'hearthfire':5,'remedy':5,'iron fist':4,'huntress':8,'trapper':6,'guardian':6,'last stand':7};
+function hasTheme(t){return d.G.party.some(function(h){return d.HEROES[h.hid].th.indexOf(t)>=0;});}
+function cntRole(re){return d.G.party.filter(function(h){return re.test(role(h));}).length;}
+/* how good a relic is for THIS party; -100 means never take it */
+function relicPri(k){var p=RELICP[k]!=null?RELICP[k]:3,P=d.G.party;
+  if(k==='lonewolf'||k==='mason'||k==='hoard')return -100;
+  var no={quiver:cntRole(/marksman|ranger|falconer/)+P.filter(isRanged).length<1,lens:P.filter(isRanged).length<1,carch:cntRole(/marksman/)<1,ctank:cntRole(/tank/)<1,cfight:cntRole(/fighter/)<1,cass:cntRole(/assassin/)<1,ccast:cntRole(/caster/)<1,csup:cntRole(/support/)<1,
+    bell:P.filter(function(h){return !isRanged(h);}).length<2,briar:!hasTheme('thorns'),heart:!hasTheme('frost'),crown:!hasTheme('burn'),chalice:!hasTheme('bleed'),bulwark:!hasTheme('shield'),etome:cntRole(/caster|support/)<1,
+    font:cntRole(/caster|support/)<1,glass:cntRole(/caster|support/)<1,skull:cntRole(/caster|support/)<1,loom:cntRole(/caster|support/)<1};
+  if(no[k])return -100;return p;}
 function role(h){return (d.HEROES[h.hid].role||'').toLowerCase();}
 function isCaster(h){var r=role(h);return /caster|support/.test(r)&&!/tank/.test(r);}
 function isTank(h){return /tank/.test(role(h));}
@@ -2019,7 +2028,11 @@ function cap(){return d.boardCap();}
 function trainedBonus(k){var D=d.getDAILY&&d.getDAILY();return (D&&D.train&&D.train[k])?CFG.trainB:0;}
 function heroScore(k){var H=d.HEROES[k];var s=(HEROP[k]||5)+trainedBonus(k);var G=d.G;var team=G.party;var themes={};team.forEach(function(h){d.HEROES[h.hid].th.forEach(function(t){themes[t]=(themes[t]||0)+1;});});
   H.th.forEach(function(t){var c=themes[t]||0;if(CFG.parity){s+=(c%2===1?3.5:(c===0?1:0));}else s+=c*.8;});
-  var tanks=team.filter(isTank).length;if(/tank/.test(H.role.toLowerCase())&&tanks<1)s+=4+CFG.tankB;var fr=team.filter(function(h){return isTank(h)||/fighter/.test(role(h));}).length;if(fr<1&&(/tank|fighter/.test(H.role.toLowerCase())))s+=CFG.frontB;if(/tank/.test(H.role.toLowerCase())&&tanks>=2)s-=4;
+  var tanks=team.filter(isTank).length;if(/tank/.test(H.role.toLowerCase())&&tanks<1)s+=4+CFG.tankB;var fr=team.filter(function(h){return isTank(h)||/fighter/.test(role(h));}).length;if(fr<1&&(/tank|fighter/.test(H.role.toLowerCase())))s+=CFG.frontB;
+  /* survivability: every party needs a tank, and something that heals or shields */
+  var hasTank=tanks>=1,hasSus=team.some(function(h){return /support/.test(role(h))||d.HEROES[h.hid].th.indexOf('shield')>=0;});
+  var isT=/tank/.test(H.role.toLowerCase()),isSup=/support/.test(H.role.toLowerCase())||H.th.indexOf('shield')>=0;
+  if(!hasTank&&isT)s+=14;else if(hasTank&&!hasSus&&isSup)s+=12;else if(!hasTank&&!isT&&team.length>=1)s-=3;if(/tank/.test(H.role.toLowerCase())&&tanks>=2)s-=4;
   var casters=team.filter(isCaster).length;if(/caster/.test(H.role.toLowerCase())&&casters<3)s+=2;
   return s;}
 function dlg(){return document.querySelector('#ov .dlg');}
@@ -2042,13 +2055,13 @@ function handleDialog(D){
   var title=(D.querySelector('h2')?D.querySelector('h2').innerText:'').trim();var cs=choicesOf(D);var t=title.toLowerCase();var picked='';
   if(/results and share/i.test(D.innerText)){return 'END';}
   if(!cs.length){if(clickBtn(D,/./))return 'btn';return 'stuck';}
-  if(/first hero/.test(t)){picked=pickBy(cs,function(c,n){var k=heroKeyByName(n);return k?HEROP[k]+(k==='ember'?5:0)+trainedBonus(k):0;});}
+  if(/first hero/.test(t)){picked=pickBy(cs,function(c,n){var k=heroKeyByName(n);return k?HEROP[k]+(k==='ember'?5:0)+trainedBonus(k)+(/tank/.test(d.HEROES[k].role.toLowerCase())?9:0):0;});}
   else if(/^give /.test(t)||/ to$/.test(t)||/^give/.test(t)){var itemName=title.replace(/^give\s+/i,'').replace(/\s+to.*$/i,'');var ik=itemKeyByName(itemName);var w=ik?wantHeroFor(ik):null;
      var idx=-1;if(w){cs.forEach(function(c,i){if(nameOf(c).indexOf(nm(w))>=0)idx=i;});}
      if(idx<0){cs.forEach(function(c,i){if(idx<0&&!/bench/i.test(nameOf(c)))idx=i;});}if(idx<0)idx=0;cs[idx].click();picked=nameOf(cs[idx]);}
   else if(/choose an item|item/.test(t)&&!/relic/.test(t)){picked=pickBy(cs,function(c,n){var k=itemKeyByName(n);return k?(ITEMP[k]||2):0;});}
   else if(/reward or rest/.test(t)){var rest=cs.filter(function(c){return /^Rest/i.test(nameOf(c));})[0];var other=cs.filter(function(c){return !/^Rest/i.test(nameOf(c));});var low=d.G.hp<(d.G.maxHp||100)*CFG.restBelow;if(rest&&(low||!other.length)){rest.click();picked='Rest';}else{picked=pickBy(other,function(c,n){return /Hero/i.test(n)?5:(/Relic/i.test(n)?9:(/Item/i.test(n)?7:(/gold/i.test(n)?4:3)));});}}
-  else if(/relic/.test(t)){picked=pickBy(cs,function(c,n){var k=relicKeyByName(n);return k?(RELICP[k]!=null?RELICP[k]:3):0;});}
+  else if(/relic/.test(t)){picked=pickBy(cs,function(c,n){var k=relicKeyByName(n);return k?relicPri(k):0;});}
   else if(/perk|level|train/.test(t)||cs.some(function(c){return /Arcana|Toughness|Keen Edge|Haste|Focus|Plating|Lifeleech|Attune/.test(nameOf(c));})){
      picked=pickBy(cs,function(c,n){var k=null;for(var pk in PERKP){var P=d.PERKS.filter(function(x){return x.k===pk})[0];if(P&&P.n===n)k=pk;}return k?PERKP[k]:0;});}
   else if(/path|specialis|choose a path/.test(t)||cs.some(function(c){return PATHP[nameOf(c).toLowerCase()]!=null;})){picked=pickBy(cs,function(c,n){return PATHP[n.toLowerCase()]||1;});}
@@ -2062,7 +2075,7 @@ function placeAll(){if(CFG.noPlace)return;var G=d.G,cp=cap(),all=G.party.slice()
   // best cp heroes go on the board
   all.sort(function(a,b){return (heroScore0(b)+(b.items.length))-(heroScore0(a)+(a.items.length));});
   var board=all.slice(0,cp),bench=all.slice(cp);
-  var front=[],mid=[],back=[];board.forEach(function(h){if(isTank(h)||/fighter/.test(role(h)))front.push(h);else if(isRanged(h)||isCaster(h))back.push(h);else mid.push(h);});
+  var front=[],mid=[],back=[];board.forEach(function(h){if(isTank(h))front.push(h);else if(isRanged(h)||isCaster(h))back.push(h);else mid.push(h);});
   var rows=[[5,front],[6,mid],[7,back]],qs=[3,2,4,1,5,0,6];
   // if one group is empty spill over: put assassins/dive anywhere
   rows.forEach(function(rw){rw[1].forEach(function(h,i){h.pos={q:qs[i%7],r:rw[0]};});});
@@ -2070,17 +2083,22 @@ function placeAll(){if(CFG.noPlace)return;var G=d.G,cp=cap(),all=G.party.slice()
   var seen={};board.forEach(function(h){var key=h.pos.q+','+h.pos.r;if(seen[key]){for(var q=0;q<7;q++){for(var r=7;r>=4;r--){var kk=q+','+r;if(!seen[kk]){h.pos={q:q,r:r};key=kk;q=9;break;}}}}seen[key]=1;});
   bench.forEach(function(h){h.pos=null;});}
 function offerScore(o){var G=d.G;
-  if(o.type==='hero'){var h=G.party.filter(function(x){return x.hid===o.key;})[0];if(h){if(h.lv>=d.MAXLV)return -1;return 5+CFG.dupe+(HEROP[o.key]>=8?4:(HEROP[o.key]>=6?2:0))+(h.lv===1?2:0);}
-     var n=G.party.length;if(n>=cap()+(CFG.bench||0))return -1;return heroScore(o.key);}
-  if(o.type==='item'){var k=o.key.split(':')[0];return (ITEMP[k]||3)+1;}
-  if(o.type==='relic'){var rk=o.key.split(':')[0].replace(/\d$/,'');rk=o.key.indexOf(':')>0?o.key.split(':')[0]:o.key;var base=d.RELICS[rk]?rk:rk;return (CFG.relicAll?20:0)+(RELICP[base]!=null?RELICP[base]:3)+2;}
+  if(o.type==='hero'){var h=G.party.filter(function(x){return x.hid===o.key;})[0];if(h){if(h.lv>=d.MAXLV)return -1;return 5+CFG.dupe+(HEROP[o.key]>=8?4:(HEROP[o.key]>=6?2:0))+h.lv*1.5;}
+     var n=G.party.length;if(n>=cap()+(CFG.bench||0))return -1;var sc=heroScore(o.key);/* only good heroes: be picky early, relax a little each round so the party still fills up */ if(sc<CFG.heroMin-(G.step-1)*CFG.heroDecay)return -1;return sc;}
+  if(o.type==='item'){var k=o.key.split(':')[0];var defHeld=G.party.some(function(h){return h.items.some(function(x){return /^(mail|aegis|spikes|gtank)/.test(x);});});return (ITEMP[k]||3)+1+((!defHeld&&/^(mail|aegis|spikes|gtank)$/.test(k))?6:0);}
+  if(o.type==='relic'){var rk=o.key.split(':')[0].replace(/\d$/,'');rk=o.key.indexOf(':')>0?o.key.split(':')[0]:o.key;var base=d.RELICS[rk]?rk:rk;var rp=relicPri(base);if(rp<=-100)return -1;return CFG.relicAll?18+rp*2:rp+2;}
   if(o.type==='build')return o.key==='wall'?2:(o.key==='gate'?1:0);
   return 0;}
-function prep(){var G=d.G,n=0,acted=false;
+function wantedDupe(o){if(o.type!=='hero')return false;var G=d.G;return G.party.some(function(h){return h.hid===o.key&&h.pos&&h.lv<d.MAXLV;});}
+function prep(){var G=d.G,n=0,acted=false,fr=0;
+  var wi;while((wi=G.stash.indexOf('wall'))>=0){G.stash.splice(wi,1);G.gold+=3;LOG.push('SELL free wall +3g');acted=true;if(CFG.oneAct){d.renderAll();return 'acted';}}
   while(n++<14){if(dlg())return 'dlg';
     var best=-1,bi=-1,bsc=-1e9;
     G.shop.forEach(function(o,i){if(o.sold)return;var p=d.priceOf(o);if(p>G.gold)return;var sc=offerScore(o);var v=sc-(p*.15);if(sc>=CFG.buyMin&&v>bsc){bsc=v;bi=i;}});
     if(bi>=0){var oo=G.shop[bi];LOG.push('BUY '+oo.type+':'+oo.key+' '+d.priceOf(oo)+'g (gold '+G.gold+')');d.buy(bi);acted=true;if(dlg())return 'dlg';if(CFG.oneAct){placeAll();d.renderAll();return 'acted';}continue;}
+    var wd=G.shop.filter(function(o){return !o.sold&&wantedDupe(o);});
+    if(wd.length){if(!G.frozen){G.frozen=true;LOG.push('FREEZE shop: '+d.HEROES[wd[0].key].n+' would level up but costs '+d.priceOf(wd[0])+' (gold '+G.gold+')');acted=true;}break;}
+    if(d.rerollCost()===0&&fr++<10){LOG.push('FREE REROLL');d.reroll();acted=true;if(CFG.oneAct){placeAll();d.renderAll();return 'acted';}continue;}
     // reroll if rich enough
     var rc=(typeof d.rerollCost==='function')?d.rerollCost():1;
     if(G.gold>=rc+CFG.rerollGold&&(G.rr||0)<CFG.rerollMax){var g0=G.gold;LOG.push('REROLL '+rc+'g');d.reroll();acted=true;continue;}
@@ -2109,7 +2127,7 @@ function botPanel(on){var a=document.getElementById('botfeed'),b=document.getEle
   a=document.createElement('div');a.id='botfeed';a.style.cssText='position:fixed;left:8px;bottom:8px;max-width:min(420px,75vw);font:12px/1.35 monospace;background:rgba(0,0,0,.78);color:#eee;padding:6px 8px;border-radius:6px;z-index:99999;pointer-events:none';document.body.appendChild(a);
   b=document.createElement('button');b.id='botstop';b.type='button';b.textContent='Stop the bot';b.style.cssText='position:fixed;right:8px;top:8px;z-index:99999;padding:8px 12px;font-size:14px';b.onclick=botStop;document.body.appendChild(b);
   var c=document.createElement('button');c.id='botspd';c.type='button';c.textContent='Speed: slow';c.style.cssText='position:fixed;right:8px;top:48px;z-index:99999;padding:8px 12px;font-size:14px';c.onclick=botSpeed;document.body.appendChild(c);}
-function botLiveStart(){if(BOTON)return;BOTON=true;BOTMETA=JSON.stringify(META);botFeed=[];var bot=botLiveMake();bot.cfg.rerollMax=0;bot.cfg.relicAll=1;bot.cfg.dupe=8;bot.cfg.restBelow=.85;bot.cfg.parity=1;botPanel(true);botFeedAdd('The bot is playing a normal run. Nothing is saved and no Renown is earned.');
+function botLiveStart(){if(BOTON)return;BOTON=true;BOTMETA=JSON.stringify(META);botFeed=[];var bot=botLiveMake();bot.cfg.rerollMax=0;bot.cfg.relicAll=1;bot.cfg.dupe=60;bot.cfg.heroMin=12;bot.cfg.heroDecay=3;bot.cfg.restBelow=.85;bot.cfg.parity=1;botPanel(true);botFeedAdd('The bot is playing a normal run. Nothing is saved and no Renown is earned.');
   botBot=bot;bot.cfg.oneAct=true;botSpd=0;BOT_MS=2200;startRun();botTimer=setInterval(botTick,BOT_MS);}
 function botEnd(){clearInterval(botTimer);botTimer=null;botPanel(false);BOTON=false;try{META=JSON.parse(BOTMETA);}catch(e){}G=null;showTitle();}
 function botStop(){botEnd();}
@@ -2537,7 +2555,7 @@ function themeChips(ts){return '<div class="chips">'+ts.map(function(t){return '
 var lastGold=null;var toastT=null;function toast(m){if(/Not enough|full|No room|already|Make room|No walls|need at least/i.test(m))SFX.play('err');var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true;},2400);}
 /* ---------- title / guide ---------- */
 function showTitle(){dailyLeave();phase='menu';closeDialog();renderAll();
-  var sv=loadSave(),best=META.bestAct?(META.wins?'Full clears: '+META.wins+'. ':'')+'Deepest: act '+Math.min(3,META.bestAct)+(META.bestAct<4?', step '+META.bestStep:'')+'.'+(META.ascMax?' Ascension unlocked: '+META.ascMax+'.':'')+(META.bestDeep?' Endless record: depth '+META.bestDeep+'.':''):'';
+  var sv=loadSave(),best=META.bestAct?(META.wins?'Full clears: '+META.wins+'. ':'')+(META.bestDeep?'':'Deepest: act '+Math.min(3,META.bestAct)+(META.bestAct<4?', step '+META.bestStep:'')+'.')+(META.ascMax?' Ascension unlocked: '+META.ascMax+'.':'')+(META.bestDeep?' Endless record: depth '+META.bestDeep+'.':''):'';
   var ch=[];if(sv)ch.push({html:'<b>Continue run</b>',fn:function(){G=sv;resumeRun();}});
   ch.push({html:'<b>'+(sv?'New run':'Begin')+'</b>',fn:function(){if(sv)endRunConfirm(sv,true);else startRun();}});
   if(sv)ch.push({html:'<b>Retire run</b>',fn:function(){endRunConfirm(sv,false);}});

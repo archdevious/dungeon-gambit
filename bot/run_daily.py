@@ -85,6 +85,7 @@ def main():
     print('day',day,'result',json.dumps(res)[:200],'errs',errs[:2])
     if not res:sys.exit(1)
     body=json.dumps({'p_day':day,'p_device':BOT_DEVICE,'p_name':BOT_NAME,'p_act':res['act'],'p_step':res['step'],'p_wins':res['wins']}).encode()
+    print('SCORE',res['score']);
     print('would submit',body.decode())
     if SUBMIT:
         rq=urllib.request.Request(URL+'/rest/v1/rpc/submit_daily',data=body,headers={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'})
