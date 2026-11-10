@@ -1980,9 +1980,8 @@ function lbQueueE(res){try{var m=lbMeta(),q=m.q,i,ex=null,a=res.asc||0;for(i=0;i
 /* called when a standard run ends: if it beats your own best and would make the top 10, send it */
 function lbEndlessCheck(g){try{var m=lbMeta(),sc=lbScoreOf(g.act,g.step),a=g.asc||0,res={asc:a,act:g.act,step:g.step,wins:(g.stats&&g.stats.wins)||0};m.eB=m.eB||{};
   if(sc<=(m.eB[a]||0))return;
-  lbFetch('/rest/v1/endless_scores?ascn=eq.'+a+'&select=score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
-    if(rows&&rows.length>=10&&sc<=rows[9].score)return;
-    m.eB[a]=sc;saveMeta();lbQueueE(res);if(!m.name){try{toast('This run is a top 10 deepest run! Open Leaderboards to set your name and post it.');}catch(e){}}},function(){});}catch(e){}}
+  for(var l=0;l<=a;l++)if(sc>(m.eB[l]||0))m.eB[l]=sc; /* a run on a higher ascension also counts on every lower one; the server fans it out */
+  saveMeta();lbQueueE(res);if(!m.name){try{toast('Your deepest run is waiting. Open Leaderboards to set your name and post it.');}catch(e){}}}catch(e){}}
 function lbAscName(a){return a?'Ascension '+a+(ASC[a-1]?' ('+ASC[a-1].n+')':''):'Standard (no ascension)';}
 function lbShowDeep(back,asc){var m=lbMeta();var mx=META.ascMax||0;if(asc==null)asc=(typeof META.lastAsc==='number'&&META.lastAsc<=mx)?META.lastAsc:0;if(asc>mx)asc=mx;dialog('<h2>Deepest runs</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);lbFlush();
   lbFetch('/rest/v1/endless_scores?ascn=eq.'+asc+'&select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
