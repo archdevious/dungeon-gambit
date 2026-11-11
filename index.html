@@ -1983,7 +1983,7 @@ function lbEndlessCheck(g){try{var m=lbMeta(),sc=lbScoreOf(g.act,g.step),a=g.asc
   for(var l=0;l<=a;l++)if(sc>(m.eB[l]||0))m.eB[l]=sc; /* a run on a higher ascension also counts on every lower one; the server fans it out */
   saveMeta();lbQueueE(res);if(!m.name){try{toast('Your deepest run is waiting. Open Leaderboards to set your name and post it.');}catch(e){}}}catch(e){}}
 function lbAscName(a){return a?'Ascension '+a+(ASC[a-1]?' ('+ASC[a-1].n+')':''):'Standard (no ascension)';}
-function lbShowDeep(back,asc){var m=lbMeta();var mx=META.ascMax||0;if(asc==null)asc=(typeof META.lastAsc==='number'&&META.lastAsc<=mx)?META.lastAsc:0;if(asc>mx)asc=mx;dialog('<h2>Deepest runs</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);lbFlush();
+function lbShowDeep(back,asc){var m=lbMeta();var mx=ASC.length;if(asc==null)asc=(typeof META.lastAsc==='number'&&META.lastAsc<=mx)?META.lastAsc:0;if(asc>mx)asc=mx;dialog('<h2>Deepest runs</h2><p class="muted">Loading…</p>',[{html:'<b>Back</b>',fn:back}],true,true);lbFlush();
   lbFetch('/rest/v1/endless_scores?ascn=eq.'+asc+'&select=name,act,step,wins,device,score&order=score.desc,wins.desc,created.asc&limit=10').then(function(rows){
     var h='<h2>Deepest runs</h2><p class="muted">'+lbAscName(asc)+'. Standard play, all your unlocked upgrades allowed. One entry per player, your best run on this ascension.</p>';
     if(!rows||!rows.length)h+='<p class="muted">No runs yet. Finish a run deep enough to be first.</p>';
@@ -2029,6 +2029,10 @@ function dailyMenu(){try{lbFlush();var lm=lbMeta();if(!lm.name&&lm.q.length&&!wi
   if(best)ch.push({html:'<b>Copy result to share</b>',fn:function(){dailyCopy(dailyShare(R));dailyMenu();}});
   ch.push({html:'<b>Back</b>',fn:showTitle});
   dialog(sum,ch,true);}
+/* watch mode: draw a bright 'pressed' box over whatever the bot is about to use, and leave it there for a moment so it is easy to follow */
+function bflash(el){try{if(!el)return;var r=el.getBoundingClientRect();if(!r.width)return;var f=document.createElement('div');f.style.cssText='position:fixed;left:'+r.left+'px;top:'+r.top+'px;width:'+r.width+'px;height:'+r.height+'px;box-sizing:border-box;border:3px solid #ffd54a;border-radius:8px;background:rgba(255,213,74,.28);box-shadow:0 0 14px 4px rgba(255,213,74,.75),inset 0 0 12px rgba(0,0,0,.45);z-index:99998;pointer-events:none;transform:scale(.97);transition:opacity .35s';document.body.appendChild(f);setTimeout(function(){f.style.opacity='0';},Math.max(500,BOT_MS*.9));setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},Math.max(500,BOT_MS*.9)+400);}catch(e){}}
+function bclk(el){bflash(el);setTimeout(function(){try{if(BOTON)el.click();}catch(e){}},Math.min(BOT_MS*.55,1300));}
+function bflashTxt(re){var bs=document.querySelectorAll('.btn');for(var i=0;i<bs.length;i++)if(re.test(bs[i].innerText)){bflash(bs[i]);return;}}
 function botLiveMake(){
 var d=window.__dd, LOG=[], unknown={}, CFG={noPlace:false,bench:0,restBelow:.6,rerollGold:10,rerollMax:4,buyMin:6,spread:1.5,dupe:0,parity:0,relicAll:0,trainB:20,tankB:0,frontB:0};
 function log(s){LOG.push(s);}
@@ -2066,8 +2070,8 @@ function heroScore(k){var H=d.HEROES[k];var s=(HEROP[k]||5)+trainedBonus(k);var 
 function dlg(){return document.querySelector('#ov .dlg');}
 function choicesOf(D){return Array.prototype.slice.call(D.querySelectorAll('.choice'));}
 function nameOf(c){var b=c.querySelector('b');return (b?b.innerText:c.innerText).trim();}
-function clickBtn(D,re){var bs=Array.prototype.slice.call(D.querySelectorAll('.btn'));for(var i=0;i<bs.length;i++){if(re.test(bs[i].innerText)&&!/HIDE/.test(bs[i].innerText)){bs[i].click();return true;}}return false;}
-function pickBy(cs,fn){var best=-1,bi=0;cs.forEach(function(c,i){var v=fn(c,nameOf(c),c.innerText);if(v>best){best=v;bi=i;}});cs[bi].click();return nameOf(cs[bi]);}
+function clickBtn(D,re){var bs=Array.prototype.slice.call(D.querySelectorAll('.btn'));for(var i=0;i<bs.length;i++){if(re.test(bs[i].innerText)&&!/HIDE/.test(bs[i].innerText)){bclk(bs[i]);return true;}}return false;}
+function pickBy(cs,fn){var best=-1,bi=0;cs.forEach(function(c,i){var v=fn(c,nameOf(c),c.innerText);if(v>best){best=v;bi=i;}});bclk(cs[bi]);return nameOf(cs[bi]);}
 function itemKeyByName(n){for(var k in d.ITEMS)if(d.ITEMS[k].n===n)return k;return null;}
 function relicKeyByName(n){n=n.replace(/\s*(II|III)$/,'');for(var k in d.RELICS)if(d.RELICS[k].n===n)return k;return null;}
 function heroKeyByName(n){for(var k in d.HEROES)if(d.HEROES[k].n===n)return k;return null;}
@@ -2086,9 +2090,9 @@ function handleDialog(D){
   if(/first hero/.test(t)){picked=pickBy(cs,function(c,n){var k=heroKeyByName(n);return k?HEROP[k]+(k==='ember'?5:0)+trainedBonus(k)+(/tank/.test(d.HEROES[k].role.toLowerCase())?9:0):0;});}
   else if(/^give /.test(t)||/ to$/.test(t)||/^give/.test(t)){var itemName=title.replace(/^give\s+/i,'').replace(/\s+to.*$/i,'');var ik=itemKeyByName(itemName);var w=ik?wantHeroFor(ik):null;
      var idx=-1;if(w){cs.forEach(function(c,i){if(nameOf(c).indexOf(nm(w))>=0)idx=i;});}
-     if(idx<0){cs.forEach(function(c,i){if(idx<0&&!/bench/i.test(nameOf(c)))idx=i;});}if(idx<0)idx=0;cs[idx].click();picked=nameOf(cs[idx]);}
+     if(idx<0){cs.forEach(function(c,i){if(idx<0&&!/bench/i.test(nameOf(c)))idx=i;});}if(idx<0)idx=0;bclk(cs[idx]);picked=nameOf(cs[idx]);}
   else if(/choose an item|item/.test(t)&&!/relic/.test(t)){picked=pickBy(cs,function(c,n){var k=itemKeyByName(n);return k?(ITEMP[k]||2):0;});}
-  else if(/reward or rest/.test(t)){var rest=cs.filter(function(c){return /^Rest/i.test(nameOf(c));})[0];var other=cs.filter(function(c){return !/^Rest/i.test(nameOf(c));});var low=d.G.hp<(d.G.maxHp||100)*CFG.restBelow;if(rest&&(low||!other.length)){rest.click();picked='Rest';}else{picked=pickBy(other,function(c,n){return /Hero/i.test(n)?5:(/Relic/i.test(n)?9:(/Item/i.test(n)?7:(/gold/i.test(n)?4:3)));});}}
+  else if(/reward or rest/.test(t)){var rest=cs.filter(function(c){return /^Rest/i.test(nameOf(c));})[0];var other=cs.filter(function(c){return !/^Rest/i.test(nameOf(c));});var low=d.G.hp<(d.G.maxHp||100)*CFG.restBelow;if(rest&&(low||!other.length)){bclk(rest);picked='Rest';}else{picked=pickBy(other,function(c,n){return /Hero/i.test(n)?5:(/Relic/i.test(n)?9:(/Item/i.test(n)?7:(/gold/i.test(n)?4:3)));});}}
   else if(/relic/.test(t)){picked=pickBy(cs,function(c,n){var k=relicKeyByName(n);return k?relicPri(k):0;});}
   else if(/perk|level|train/.test(t)||cs.some(function(c){return /Arcana|Toughness|Keen Edge|Haste|Focus|Plating|Lifeleech|Attune/.test(nameOf(c));})){
      picked=pickBy(cs,function(c,n){var k=null;for(var pk in PERKP){var P=d.PERKS.filter(function(x){return x.k===pk})[0];if(P&&P.n===n)k=pk;}return k?PERKP[k]:0;});}
@@ -2096,7 +2100,7 @@ function handleDialog(D){
   else if(/victory|defeat|continue/.test(t)||cs.length===0){}
   else{ // unknown: log and pick the first
      if(!unknown[title]){unknown[title]=cs.map(function(c){return c.innerText.replace(/\n/g,' / ').slice(0,80);});}
-     cs[0].click();picked=nameOf(cs[0]);}
+     bclk(cs[0]);picked=nameOf(cs[0]);}
   log('DLG['+title+'] -> '+picked);return 'ok';
 }
 function placeAll(){if(CFG.noPlace)return;var G=d.G,cp=cap(),all=G.party.slice();
@@ -2123,13 +2127,13 @@ function prep(){var G=d.G,n=0,acted=false,fr=0;
   while(n++<14){if(dlg())return 'dlg';
     var best=-1,bi=-1,bsc=-1e9;
     G.shop.forEach(function(o,i){if(o.sold)return;var p=d.priceOf(o);if(p>G.gold)return;var sc=offerScore(o);var v=sc-(p*.15);if(sc>=CFG.buyMin&&v>bsc){bsc=v;bi=i;}});
-    if(bi>=0){var oo=G.shop[bi];LOG.push('BUY '+oo.type+':'+oo.key+' '+d.priceOf(oo)+'g (gold '+G.gold+')');d.buy(bi);acted=true;if(dlg())return 'dlg';if(CFG.oneAct){placeAll();d.renderAll();return 'acted';}continue;}
+    if(bi>=0){var oo=G.shop[bi];LOG.push('BUY '+oo.type+':'+oo.key+' '+d.priceOf(oo)+'g (gold '+G.gold+')');bflash(document.querySelectorAll('#market .card')[bi]);d.buy(bi);acted=true;if(dlg())return 'dlg';if(CFG.oneAct){placeAll();d.renderAll();return 'acted';}continue;}
     var wd=G.shop.filter(function(o){return !o.sold&&wantedDupe(o);});
     if(wd.length){if(!G.frozen){G.frozen=true;LOG.push('FREEZE shop: '+d.HEROES[wd[0].key].n+' would level up but costs '+d.priceOf(wd[0])+' (gold '+G.gold+')');acted=true;}break;}
-    if(d.rerollCost()===0&&fr++<10){LOG.push('FREE REROLL');d.reroll();acted=true;if(CFG.oneAct){placeAll();d.renderAll();return 'acted';}continue;}
+    if(d.rerollCost()===0&&fr++<10){LOG.push('FREE REROLL');bflashTxt(/^REROLL/);d.reroll();acted=true;if(CFG.oneAct){placeAll();d.renderAll();return 'acted';}continue;}
     // reroll if rich enough
     var rc=(typeof d.rerollCost==='function')?d.rerollCost():1;
-    if(G.gold>=rc+CFG.rerollGold&&(G.rr||0)<CFG.rerollMax){var g0=G.gold;LOG.push('REROLL '+rc+'g');d.reroll();acted=true;continue;}
+    if(G.gold>=rc+CFG.rerollGold&&(G.rr||0)<CFG.rerollMax){var g0=G.gold;LOG.push('REROLL '+rc+'g');bflashTxt(/^REROLL/);d.reroll();acted=true;continue;}
     break;}
   placeAll();return acted?'acted':'idle';}
 function fight(){var G=d.G;placeAll();d.startFight();var k=0;while(d.S&&!d.S.over&&k++<9000)d.simStep(d.S);var win=d.S&&d.S.winner===0;d.endFight();return win;}
@@ -2141,7 +2145,7 @@ function tick(){var D=dlg();if(!d.G)return {s:'nog'};
 var idle=0;
 function live(){var D=dlg();
   if(D){handleDialog(D);}
-  else if(d.G&&d.phase==='prep'){var r=prep();if(r==='acted'||r==='dlg'){idle=0;}else{placeAll();d.renderAll();if(++idle>=2){idle=0;LOG.push('--- fight ---');d.startFight();}}}
+  else if(d.G&&d.phase==='prep'){var r=prep();if(r==='acted'||r==='dlg'){idle=0;}else{placeAll();d.renderAll();if(++idle>=2){idle=0;LOG.push('--- fight ---');bflashTxt(/FIGHT/);d.startFight();}}}
   return {log:LOG.splice(0)};}
 return {cfg:CFG,tick:tick,live:live};
 
@@ -2151,14 +2155,17 @@ var botTimer=null,botFeed=[],BOT_MS=2200,botSpd=0,botBot=null;
 function botSpeed(){botSpd=(botSpd+1)%3;BOT_MS=[2200,1200,500][botSpd];var s=document.getElementById('botspd');if(s)s.textContent='Speed: '+['slow','medium','fast'][botSpd];clearInterval(botTimer);botTimer=setInterval(botTick,BOT_MS);}
 function botTick(){try{botBot.live().log.forEach(botFeedAdd);}catch(e){botFeedAdd('bot error: '+e.message);}}
 function botFeedAdd(s){botFeed.push(s);if(botFeed.length>10)botFeed.shift();var p=document.getElementById('botfeed');if(p)p.innerHTML=botFeed.map(esc).join('<br>');}
-function botPanel(on){var a=document.getElementById('botfeed'),b=document.getElementById('botstop'),c0=document.getElementById('botspd');if(a)a.remove();if(b)b.remove();if(c0)c0.remove();if(!on)return;
+function botPanel(on){var a=document.getElementById('botfeed'),b=document.getElementById('botstop'),c0=document.getElementById('botspd'),n0=document.getElementById('botnew');if(a)a.remove();if(b)b.remove();if(c0)c0.remove();if(n0)n0.remove();if(!on)return;
   a=document.createElement('div');a.id='botfeed';a.style.cssText='position:fixed;left:8px;bottom:8px;max-width:min(420px,75vw);font:12px/1.35 monospace;background:rgba(0,0,0,.78);color:#eee;padding:6px 8px;border-radius:6px;z-index:99999;pointer-events:none';document.body.appendChild(a);
-  b=document.createElement('button');b.id='botstop';b.type='button';b.textContent='Stop the bot';b.style.cssText='position:fixed;right:8px;top:8px;z-index:99999;padding:8px 12px;font-size:14px';b.onclick=botStop;document.body.appendChild(b);
-  var c=document.createElement('button');c.id='botspd';c.type='button';c.textContent='Speed: slow';c.style.cssText='position:fixed;right:8px;top:48px;z-index:99999;padding:8px 12px;font-size:14px';c.onclick=botSpeed;document.body.appendChild(c);}
+  b=document.createElement('button');b.id='botstop';b.type='button';b.textContent='Stop watching';b.style.cssText='position:fixed;right:8px;top:8px;z-index:99999;padding:8px 12px;font-size:14px';b.onclick=botStop;document.body.appendChild(b);
+  var c=document.createElement('button');c.id='botspd';c.type='button';c.textContent='Speed: slow';c.style.cssText='position:fixed;right:8px;top:48px;z-index:99999;padding:8px 12px;font-size:14px';c.onclick=botSpeed;document.body.appendChild(c);
+  var n=document.createElement('button');n.id='botnew';n.type='button';n.textContent='New bot run';n.style.cssText='position:fixed;right:8px;top:88px;z-index:99999;padding:8px 12px;font-size:14px';n.onclick=botNew;document.body.appendChild(n);}
 function botLiveStart(){if(BOTON)return;BOTON=true;BOTMETA=JSON.stringify(META);botFeed=[];var bot=botLiveMake();bot.cfg.rerollMax=0;bot.cfg.relicAll=1;bot.cfg.dupe=60;bot.cfg.heroMin=12;bot.cfg.heroDecay=3;bot.cfg.restBelow=.85;bot.cfg.parity=1;botPanel(true);botFeedAdd('The bot is playing a normal run. Nothing is saved and no Renown is earned.');
   botBot=bot;bot.cfg.oneAct=true;botSpd=0;BOT_MS=2200;startRun();botTimer=setInterval(botTick,BOT_MS);}
-function botEnd(){clearInterval(botTimer);botTimer=null;botPanel(false);BOTON=false;try{META=JSON.parse(BOTMETA);}catch(e){}G=null;showTitle();}
+function botCleanup(){if(!BOTON)return;clearInterval(botTimer);botTimer=null;botPanel(false);BOTON=false;try{META=JSON.parse(BOTMETA);}catch(e){}BOTMETA=null;}
+function botEnd(){botCleanup();G=null;showTitle();}
 function botStop(){botEnd();}
+function botNew(){var s=BOT_MS;botCleanup();G=null;closeDialog();botLiveStart();}
 function botOver(report){clearInterval(botTimer);botTimer=null;phase='over';var s=G.stats||{};renderAll();
   dialog('<h2>The bot\'s run is over</h2><p>It fell in '+(G.endless?'the Endless Deep at depth '+G.act:'act '+G.act)+', step '+G.step+'. Fights won: '+(s.wins||0)+'. Nothing was saved and no Renown was earned.</p>'+(report||''),[{html:'<b>Back to the title</b>',fn:botEnd}],true,true);}
 /* ===== GAME: run flow, rendering, UI ===== */
@@ -2460,9 +2467,9 @@ function nextRewardText(win){if(!win&&G.enc.diff==='boss')return '';var boss=G.e
 /* class items have a fixed tier and only turn up where an item of that tier would */
 function itemPool(t){return ITEM_KEYS.filter(function(k){return !ITEMS[k].fixed||ITEMS[k].fixed===t;});}
 function offerItems(done){if(DAILY)dre('ri'+G.act+'.'+G.step);var ks=itemPool(ai()+1).sort(function(){return rnd()-.5;}).slice(0,3).map(function(k){return k+':'+(ai()+1);});
-  dialog('<h2>Choose an item</h2><p class="muted">You will pick which hero carries it next. Each hero holds up to 3 items, and only one of each kind. Hide this screen to look over your party first.</p>',ks.map(function(k){var it=itemDef(k);return {cls:'tier'+it.t,html:'<div class="row"><img src="'+glyphURL(it.g,4,it.t)+'" alt=""></div><b>'+esc(it.n)+'</b>'+(it.th?themeChips([it.th]):'')+'<span>'+esc(it.d)+'</span>',
+  var show=function(){dialog('<h2>Choose an item</h2><p class="muted">You will pick which hero carries it next. Each hero holds up to 3 items, and only one of each kind. Hide this screen to look over your party first.</p>',ks.map(function(k){var it=itemDef(k);return {cls:'tier'+it.t,html:'<div class="row"><img src="'+glyphURL(it.g,4,it.t)+'" alt=""></div><b>'+esc(it.n)+'</b>'+(it.th?themeChips([it.th]):'')+'<span>'+esc(it.d)+'</span>',
     fn:function(){if(autoUpgrade(k)){afterChange();return done();}var room=G.party.slice();
-      CHI_ITEM=k;chooseHeroFor('Give '+it.n+' to',it.d,room,function(h){h.items.push(k);done();},false,function(){G.stash.push(k);done();});}};}),true,false,'Choosing an item');}
+      CHI_ITEM=k;chooseHeroFor('Give '+it.n+' to',it.d,room,function(h){h.items.push(k);done();},false,function(){G.stash.push(k);done();},undefined,undefined,show);}};}),true,false,'Choosing an item');};show();}
 function offerRelics(done){if(DAILY)dre('rr'+G.act+'.'+G.step);var ks=relicPool().filter(function(k){return G.relics.indexOf(k)<0;}).sort(function(){return rnd()-.5;}).slice(0,3);if(!ks.length)return done();
   dialog('<h2>Choose a relic</h2><p class="muted">Relics affect your whole party for the rest of the run.</p>',ks.map(function(k){var r=RELICS[k];return {html:'<div class="row"><img src="'+glyphURL(r.g,4)+'" alt=""></div><b>'+esc(r.n)+'</b><span>'+esc(r.d)+'</span>',fn:function(){G.relics.push(k);done();}};}),true,false,'Choosing a relic');}
 function advance(win){
@@ -2541,14 +2548,15 @@ function makeRoom(h,done,benchFree,back){if(h.items.length<itemCap(h))return don
     h.items.map(function(k,i){var it=itemDef(k);return {cls:'tier'+it.t,html:'<div class="row"><img src="'+glyphURL(it.g,4,it.t)+'" alt=""></div><b>'+esc(it.n)+'</b><span>'+esc(it.d)+'</span>'+(room>0?'':'<small>Sell for '+itemSellValue(k)+' gold</small>'),
       fn:function(){var old=h.items.splice(i,1)[0];if(room>0)G.stash.push(old);else G.gold+=itemSellValue(old);done();}};}).concat(back?[{html:'<b>Cancel</b><span>Go back without moving anything.</span>',fn:back}]:[]),true,false,'Making room on '+d.n);}
 function hcl(h){return heroClasses(h.hid,h.path).map(function(c){return CLS_LABEL[c];}).join('/').replace(/^./,function(c){return c.toUpperCase();});}
-function chooseHeroFor(title,desc,heroes,fn,cancel,toStash,sell,benchFree){var ik=CHI_ITEM;CHI_ITEM=null;
+function chooseHeroFor(title,desc,heroes,fn,cancel,toStash,sell,benchFree,back){var ik=CHI_ITEM;CHI_ITEM=null;
   var ch=heroes.map(function(h){var d=HEROES[h.hid],dup=ik?sameItem(h,ik):null;
     if(dup)return {html:'<div class="row"><img src="'+spriteURL(d.spr,2)+'" alt=""></div><b>'+esc(d.n)+'</b><small>Level '+h.lv+' · '+hcl(h)+' · already has '+esc(itemDef(dup).n)+' · swaps it out (one of each item)</small>'+heroThemeChips(h),
       fn:function(){var room=STASH-G.stash.length+(benchFree||0);h.items.splice(h.items.indexOf(dup),1);if(room>0)G.stash.push(dup);else{G.gold+=itemSellValue(dup);toast('Bench full, so '+itemDef(dup).n+' sold for '+itemSellValue(dup)+' gold');}fn(h);}};
-    return {html:'<div class="row"><img src="'+spriteURL(d.spr,2)+'" alt=""></div><b>'+esc(d.n)+'</b><small>Level '+h.lv+' · '+hcl(h)+' · '+h.items.length+'/'+itemCap(h)+' items'+(h.items.length>=itemCap(h)?' · swap one out':'')+'</small>'+heroThemeChips(h),fn:function(){makeRoom(h,function(){fn(h);},benchFree,function(){CHI_ITEM=ik;chooseHeroFor(title,desc,heroes,fn,cancel,toStash,sell,benchFree);});}};});
+    return {html:'<div class="row"><img src="'+spriteURL(d.spr,2)+'" alt=""></div><b>'+esc(d.n)+'</b><small>Level '+h.lv+' · '+hcl(h)+' · '+h.items.length+'/'+itemCap(h)+' items'+(h.items.length>=itemCap(h)?' · swap one out':'')+'</small>'+heroThemeChips(h),fn:function(){makeRoom(h,function(){fn(h);},benchFree,function(){CHI_ITEM=ik;chooseHeroFor(title,desc,heroes,fn,cancel,toStash,sell,benchFree,back);});}};});
   if(toStash&&G.stash.length<STASH)ch.push({html:'<div class="row"><img src="'+glyphURL('mail',3)+'" alt="" style="opacity:.5"></div><b>Item bench</b><small>Keep it for later ('+G.stash.length+'/'+STASH+' slots used). Items on the bench do nothing until a hero carries them.</small>',fn:function(){toStash();}});
   if(sell&&sell.u>=0)ch.push({html:'<div class="row"><img src="'+glyphURL('coin',3)+'" alt=""></div><b>Undo purchase</b><small>Full refund: +'+priceOf(G.shop[sell.u])+' gold.</small>',cls:'sellc',fn:function(){undoBuy(sell.u);}});
   else if(sell)ch.push({html:'<div class="row"><img src="'+glyphURL('coin',3)+'" alt=""></div><b>Sell for '+sell.v+' gold</b><small>75% of its price.</small>',cls:'sellc',fn:function(){sell.fn();}});
+  if(ik&&back)ch.push({html:'<b>Cancel</b><small>Go back and choose again.</small>',fn:back});
   dialog('<h2>'+esc(title)+'</h2><p class="muted">'+esc(desc)+'</p>',ch,!cancel,false,title);
 }
 var BENCHN=2,STASH=3,wallMode=false,gateMode=false,cofferMode=false;
@@ -2582,7 +2590,7 @@ function heroThemeChips(h){var s=themeSrc(h);return '<div class="chips">'+Object
 function themeChips(ts){return '<div class="chips">'+ts.map(function(t){return '<span class="chip" title="'+esc(themeTip(t))+'"><img src="'+iconURL(t,2)+'" alt="">'+THEMES[t].n+'</span>';}).join('')+'</div>';}
 var lastGold=null;var toastT=null;function toast(m){if(/Not enough|full|No room|already|Make room|No walls|need at least/i.test(m))SFX.play('err');var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true;},2400);}
 /* ---------- title / guide ---------- */
-function showTitle(){dailyLeave();phase='menu';closeDialog();renderAll();
+function showTitle(){if(BOTON)botCleanup();dailyLeave();phase='menu';closeDialog();renderAll();
   var sv=loadSave(),best=META.bestAct?(META.wins?'Full clears: '+META.wins+'. ':'')+(META.bestDeep?'':'Deepest: act '+Math.min(3,META.bestAct)+(META.bestAct<4?', step '+META.bestStep:'')+'.')+(META.ascMax?' Ascension unlocked: '+META.ascMax+'.':'')+(META.bestDeep?' Endless record: depth '+META.bestDeep+'.':''):'';
   var ch=[];if(sv)ch.push({html:'<b>Continue run</b>',fn:function(){G=sv;resumeRun();}});
   ch.push({html:'<b>'+(sv?'New run':'Begin')+'</b>',fn:function(){if(sv)endRunConfirm(sv,true);else startRun();}});
@@ -2619,7 +2627,7 @@ function homeScreen(ch,best){
   var z=Math.min(innerWidth/420,innerHeight/820,1.5);if(z<1||z>1.05){hin.style.zoom=z;var fl=h.querySelector('.hflr');if(fl)fl.style.setProperty('top',(580*z)+'px','important');}}
 function showStats(back){var s=ST(),N=function(n){n=Math.round(n||0);return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e4?Math.round(n/1e3)+'k':String(n);},HN=function(k){return HEROES[k]?HEROES[k].n:k;},
   tm=function(t){return Math.floor(t/60)+':'+('0'+(t%60)).slice(-2);},c=function(b,t){return '<div class="sc"><b>'+b+'</b><span>'+t+'</span></div>';},r=function(a,b){return '<div class="sr"><span>'+a+'</span><b>'+b+'</b></div>';};
-  var runs=META.runs||0,fights=s.fw+s.fl,h='<h2>Stats</h2><div class="sg">'+c(runs,'Runs started')+c((META.wins||0)+(runs?' · '+Math.round(100*(META.wins||0)/runs)+'%':''),'Runs cleared')+c(META.bestAct?'Act '+Math.min(3,META.bestAct)+(META.bestDeep?' · Deep '+META.bestDeep:''):'-','Furthest reached')+c(N(META.earned),'Renown earned')+'</div>';
+  var runs=META.runs||0,fights=s.fw+s.fl,h='<h2>Stats</h2><div class="sg">'+c(runs,'Runs started')+c((META.wins||0)+(runs?' · '+Math.round(100*(META.wins||0)/runs)+'%':''),'Runs cleared')+c(META.bestAct?(META.bestAct>3?'Deep '+META.bestAct:'Act '+META.bestAct)+', step '+(META.bestStep||0):'-','Furthest reached')+c(N(META.earned),'Renown earned')+'</div>';
   h+='<h3>Bonus rounds</h3>';[['tdA'],['tdB'],['tdC']].forEach(function(m){m[1]=ROOMS[m[0]].n;var b=s.bn[m[0]];h+='<div class="sb"><div><b>'+m[1]+'</b><i>'+(b?'Best '+b.best+' kills':'Not played')+'</i></div>'+(b?'<small>Played '+b.n+' · average '+(b.tot/b.n).toFixed(1)+' · total '+b.tot+' kills'+(b.long?' · longest until the 5th leak '+tm(b.long):'')+'</small>':'')+'</div>';});
   h+='<h3>Combat</h3>'+r('Fights won / lost',s.fw+' / '+s.fl)+r('Bosses beaten',s.bw)+r('Total kills',N(s.kills))+r('Damage dealt',N(s.dmg))+r('Healing done',N(s.heal))+(s.bh?r('Biggest hit',N(s.bh.v)+' · '+HN(s.bh.h)):'')+(s.bf?r('Most damage, one fight',N(s.bf.v)+' · '+HN(s.bf.h)):'')+(s.bt?r('Fastest boss kill',tm(s.bt)):'');
   var hk=Object.keys(s.hr),top=hk.sort(function(a,b){return s.hr[b].f-s.hr[a].f;})[0],bw=hk.filter(function(k){return s.hr[k].f>=10;}).sort(function(a,b){return s.hr[b].w/s.hr[b].f-s.hr[a].w/s.hr[a].f;})[0],ms=HERO_KEYS.slice().sort(function(a,b){return (((META.mast||{})[b]||{p:[]}).p.length)-(((META.mast||{})[a]||{p:[]}).p.length);})[0];
@@ -2961,7 +2969,7 @@ function boot(){
 }
 boot();
 window.__sprReady=function(){try{if(G)renderAll();}catch(e){}};
-window.__dd={makeRoom:makeRoom,chooseHeroFor:chooseHeroFor,finishRun:finishRun,drawUnit:drawUnit,rerollCost:rerollCost,MAXLV:MAXLV,priceOf:priceOf,itemCap:itemCap,TWISTS:TWISTS,dailyCfg:dailyCfg,dNewPlan:dNewPlan,dailyLaunch:dailyLaunch,dailyRec:dailyRec,dailyMenu:dailyMenu,dailyShare:dailyShare,getDAILY:function(){return DAILY;},makeSFX:makeSFX,SFX:SFX,rollMarket:rollMarket,renderAll:renderAll,showTitle:showTitle,showCamp:showCamp,SPR:SPR,spriteURL:spriteURL,SPRC:SPRC,SPRURL:SPRURL,showStats:showStats,ST:ST,endFight:endFight,startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
+window.__dd={setChi:function(k){CHI_ITEM=k;},makeRoom:makeRoom,chooseHeroFor:chooseHeroFor,finishRun:finishRun,drawUnit:drawUnit,rerollCost:rerollCost,MAXLV:MAXLV,priceOf:priceOf,itemCap:itemCap,TWISTS:TWISTS,dailyCfg:dailyCfg,dNewPlan:dNewPlan,dailyLaunch:dailyLaunch,dailyRec:dailyRec,dailyMenu:dailyMenu,dailyShare:dailyShare,getDAILY:function(){return DAILY;},makeSFX:makeSFX,SFX:SFX,rollMarket:rollMarket,renderAll:renderAll,showTitle:showTitle,showCamp:showCamp,SPR:SPR,spriteURL:spriteURL,SPRC:SPRC,SPRURL:SPRURL,showStats:showStats,ST:ST,endFight:endFight,startBonus:startBonus,genBonus:genBonus,advance:advance,addHero:addHero,newRunState:newRunState,tdParams:tdParams,TD_ROOMS:TD_ROOMS,ACTS:ACTS,STEPS:STEPS,ROOMS:ROOMS,REG_ROOMS:REG_ROOMS,BOSS_ROOMS:BOSS_ROOMS,roomKeyFor:roomKeyFor,roomInfo:roomInfo,enterPrep:enterPrep,get G(){return G;},set G(v){G=v;},get S(){return S;},get phase(){return phase;},setRng:function(f){rnd=f;},masteryLevelUp:masteryLevelUp,showStory:showStory,afterRewards:afterRewards,itemDef:itemDef,
   startRun:startRun,undoBuy:undoBuy,nextFight:nextFight,enterPrep:enterPrep,startFight:startFight,skipFight:skipFight,endFight:endFight,buy:buy,reroll:reroll,sellHero:sellHero,
   closeDialog:closeDialog,showTitle:showTitle,genEncounter:genEncounter,placeHero:placeHero,afterChange:afterChange,boardCap:boardCap,onBoard:onBoard,inReserve:inReserve,
   showEventK:function(k,done){var e=EVENTS.filter(function(x){return x.k===k;})[0];var o=EVENTS;EVENTS=[e];showEvent(done);EVENTS=o;},TUNE:TUNE,HEROES:HEROES,PERKS:PERKS,ITEM_KEYS:ITEM_KEYS,RELIC_KEYS:RELIC_KEYS,HERO_KEYS:HERO_KEYS,genBoss:genBoss,ITEMS:ITEMS,RELICS:RELICS,heroUnit:heroUnit,mkSim:mkSim,simStep:simStep,foeUnits:foeUnits,themeCounts:themeCounts,foeThemes:foeThemes};
