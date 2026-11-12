@@ -19,7 +19,7 @@ def plan(pg):
     click('Daily Gambit');click('Plan your run')
     t=txt(pg)
     PERKS=['Arcana','Focus','Toughness','Haste','Keen Edge','Plating','Lifeleech']
-    CAST=['Emberwitch','Nix','Grisk','Sable','Kestrel','Mother Moss']
+    CAST=['Nix','Sir Brandt','Brother Hale','Dame Pyra','Sable','Emberwitch']
     def budget():return int(re.search(r'Budget: (\d+)',txt(pg)).group(1))
     click('Heroes');done=0
     for _ in range(0 if os.environ.get('NOTRAIN') else 2):
