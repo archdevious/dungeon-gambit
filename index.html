@@ -1657,6 +1657,7 @@ function chestGold(){return COFFER_GOLD*(G&&G.relics&&G.relics.indexOf('hoard')>
 function chestURL(){return obsCanvas('coffer').toDataURL();}
 /* the gate spans two hexes side by side: (q,r) and (q+1,r) */
 function gateAt(q,r){return !!(G&&G.gatePos&&G.gatePos.r===r&&(G.gatePos.q===q||G.gatePos.q+1===q));}
+function cellHex(q,r){if(!G||!G.enc||!G.enc.room||!ROOMS[G.enc.room])return false;return (roomInfo(G.enc.room).cells||[]).some(function(c){return c.r>=MID&&c.q===q&&c.r===r;});}
 function tdRoom(){return !!(G&&G.enc&&G.enc.td);}
 var TDK={};
 function tdTrackAt(q,r){if(!tdRoom())return false;var k=G.enc.room;if(!TDK[k]){TDK[k]={};roomInfo(k).deco.forEach(function(d){if(d.k==='path')TDK[k][d.q+','+d.r]=1;});}return !!TDK[k][q+','+r];}
@@ -1672,7 +1673,7 @@ function gateOwned(){return ((G&&G.stash)||[]).filter(function(k){return k==='ga
 function wallsLeft(){return G.stash.filter(function(k){return k==='wall';}).length;}
 /* entering a fight: nothing may stand on an obstacle */
 function clearObstacleHexes(){if(!G||!G.enc)return;function back(k,v){if(G.stash.length<STASH)G.stash.push(k);else{G.gold+=v;toast('No bench room: your '+(k==='gate'?'gate':k==='wall'?'wall':'chest')+' was sold for '+v+' gold');}}
-  if(G.gatePos&&(obsAt(G.gatePos.q,G.gatePos.r)||obsAt(G.gatePos.q+1,G.gatePos.r))){G.gatePos=null;back('gate',GATE_SELL);}G.wallPos=(G.wallPos||[]).filter(function(w){if(obsAt(w.q,w.r)){back('wall',WALL_SELL);return false;}return true;});G.cofferPos=(G.cofferPos||[]).filter(function(w){if(obsAt(w.q,w.r)){back('chest',COFFER_COST);return false;}return true;});
+  if(G.gatePos&&(obsAt(G.gatePos.q,G.gatePos.r)||obsAt(G.gatePos.q+1,G.gatePos.r)||cellHex(G.gatePos.q,G.gatePos.r)||cellHex(G.gatePos.q+1,G.gatePos.r))){G.gatePos=null;back('gate',GATE_SELL);}G.wallPos=(G.wallPos||[]).filter(function(w){if(obsAt(w.q,w.r)||cellHex(w.q,w.r)){back('wall',WALL_SELL);return false;}return true;});G.cofferPos=(G.cofferPos||[]).filter(function(w){if(obsAt(w.q,w.r)||cellHex(w.q,w.r)){back('chest',COFFER_COST);return false;}return true;});
   G.party.forEach(function(h){if(h.pos&&(blockedHex(h.pos.q,h.pos.r)||(!tdRoom()&&h.pos.r<MID))){var keep=h.pos;h.pos=null;var f=freePlayerHex();h.pos=f||null;}});}
 /* ---------- rooms: fixed, hand-made maps. Each act uses two regular rooms (3 fights each), then a boss room ---------- */
 OBS_PAINT.tree={w:20,h:24,p:function(px){var sd=5,R=function(){sd=(sd*16807)%2147483647;return sd/2147483647;};
@@ -2338,7 +2339,7 @@ function marketTier(){var x=rnd()*(1-.15*upg('quarter')),a=Math.min(G.act,ACTS),
   if(a===1)return x<.04*st?2:1;
   if(a===2)return x<.06+.02*st?3:x<.55?2:1;
   return x<.3+.04*st?3:x<.9?2:1;}
-function rollMarket(){if(DAILY)dre('m'+G.act+'.'+G.step+'.'+(G.rr||0)+'.'+(G.tr||0)+(G.enc&&G.enc.td?'b':''));var s=[],seen={};for(var i=0;i<3+upg('recruit')+(DAILY&&DAILY.twist.handN||0);i++){var k,g=0;do{k=rollHero();}while(seen[k]&&g++<20);seen[k]=1;s.push({type:'hero',key:k,coin:coinPick});}var mt=marketTier();s.push({type:'item',key:pick(itemPool(mt))+':'+mt});if(DAILY&&DAILY.twist.items){var mt2=marketTier();s.push({type:'item',key:pick(itemPool(mt2))+':'+mt2});}
+function rollMarket(){if(DAILY)dre('m'+G.act+'.'+G.step+'.'+(G.rr||0)+'.'+(G.tr||0)+(G.enc&&G.enc.td?'b':''));var s=[],seen={};for(var i=0;i<3+upg('recruit')+(DAILY&&DAILY.twist.handN||0);i++){var k,g=0;do{k=rollHero();}while(seen[k]&&g++<20);seen[k]=1;s.push({type:'hero',key:k,coin:coinPick});}var mt=marketTier();s.push({type:'item',key:pick(itemPool(mt))+':'+mt});var cpool=classItemPool();if(cpool.length&&rnd()<.15){var ck=pick(cpool);s[s.length-1]={type:'item',key:ck+':'+ITEMS[ck].fixed};} /* class items get their own chance at any depth, so Quartermaster can't lock them out */if(DAILY&&DAILY.twist.items){var mt2=marketTier();s.push({type:'item',key:pick(itemPool(mt2))+':'+mt2});}
   G.rlv=G.rlv||{};var rl=relicPool().filter(function(k){return G.relics.indexOf(k)<0;});
   G.relics.forEach(function(k){var lv=G.rlv[k]||1;if(RTIER[k]&&lv<3)rl.push(k+':'+(lv+1));}); /* upgrades for relics you own */
   if(rl.length)s.push({type:'relic',key:pick(rl)});
@@ -2517,7 +2518,10 @@ function nextRewardText(win){if(!win&&G.enc.diff==='boss')return '';var boss=G.e
   if(kind==='relic'&&!relicPool().some(function(k){return G.relics.indexOf(k)<0;}))kind='gold';if(kind==='item'&&!itemRoom())kind='gold';
   return '<p class="muted">Reward for this fight: '+(kind==='gold'?'<b style="color:var(--gold)">'+rewardGold()+' gold</b>':kind==='item'?'choose 1 of 3 '+TIER_NAME[ai()]+' items':'choose 1 of 3 relics')+'.</p>';}
 /* class items have a fixed tier and only turn up where an item of that tier would */
-function itemPool(t){return ITEM_KEYS.filter(function(k){return !ITEMS[k].fixed||ITEMS[k].fixed===t;});}
+function ownedClassItems(){var o={};if(!G)return o;G.party.forEach(function(h){(h.items||[]).forEach(function(i){var b=itemBase(i);if(ITEMS[b]&&ITEMS[b].cls)o[b]=1;});});(G.stash||[]).forEach(function(i){var b=itemBase(i);if(ITEMS[b]&&ITEMS[b].cls)o[b]=1;});return o;}
+/* class items: one of each per party (never a second Sage's Orb) */
+function itemPool(t){var own=ownedClassItems();return ITEM_KEYS.filter(function(k){return (!ITEMS[k].fixed||ITEMS[k].fixed===t)&&!(ITEMS[k].cls&&own[k]);});}
+function classItemPool(){var own=ownedClassItems();return ITEM_KEYS.filter(function(k){return ITEMS[k].cls&&!own[k];});}
 function offerItems(done){if(DAILY)dre('ri'+G.act+'.'+G.step);var ks=itemPool(ai()+1).sort(function(){return rnd()-.5;}).slice(0,3).map(function(k){return k+':'+(ai()+1);});
   var show=function(){dialog('<h2>Choose an item</h2><p class="muted">You will pick which hero carries it next. Each hero holds up to 3 items, and only one of each kind. Hide this screen to look over your party first.</p>',ks.map(function(k){var it=itemDef(k);return {cls:'tier'+it.t,html:'<div class="row"><img src="'+glyphURL(it.g,4,it.t)+'" alt=""></div><b>'+esc(it.n)+'</b>'+(it.th?themeChips([it.th]):'')+'<span>'+esc(it.d)+'</span>',
     fn:function(){if(autoUpgrade(k)){afterChange();return done();}var room=G.party.slice();
@@ -2762,8 +2766,8 @@ function afterChange(){save();renderAll();}
 function renderAll(){RLV=(G&&G.rlv)||{};MAST=masteryBuffs();renderTop();renderParty();renderEffects();renderRelics();renderFoeLine();renderBossBar();renderCtrl();renderReserve();renderMarket();renderDetail();}
 function renderTop(){
   var p=$('path');p.innerHTML='';
-  if(G){p.appendChild(el('span','actlbl',(G.act>ACTS?'DEEP ':'ACT ')+G.act+(G.asc?' · A'+G.asc:'')));for(var i=1;i<=STEPS;i++){if(i>1)p.appendChild(el('i','link'+(i<=G.step?' done':'')));
-    var n=el('span','node'+(i<G.step?' done':i===G.step?' cur':''));var im=el('img');im.alt='';im.src=glyphURL(i===STEPS?'brand':'sword',2);n.appendChild(im);p.appendChild(n);}}
+  if(G){p.appendChild(el('span','actlbl',(G.act>ACTS?'DEEP ':'ACT ')+G.act));for(var i=1;i<=STEPS;i++){if(i>1)p.appendChild(el('i','link'+(i<=G.step?' done':'')));
+    var n=el('span','node'+(i<G.step?' done':i===G.step?' cur':''));var im=el('img');im.alt='';im.src=glyphURL(i===STEPS?'brand':'sword',2);n.appendChild(im);p.appendChild(n);}if(G.asc){var ab=el('span','actlbl','Ascension '+G.asc);ab.style.cssText='margin-left:12px;margin-right:0;color:#a26c0b;border:1px solid #a26c0b88;border-radius:6px;padding:1px 6px';p.appendChild(ab);}}
   $('hpTxt').textContent=G?Math.max(0,G.hp):'';$('hpBar').style.width=G?Math.max(0,G.hp/maxHp()*100)+'%':'0';
   $('goldIco').src=glyphURL('coin',2);$('goldTxt').textContent=G?G.gold:'';if(G){if(lastGold!==null&&G.gold<lastGold)SFX.play('buy');else if(lastGold!==null&&G.gold>lastGold&&phase!=='fight')SFX.play('coin');lastGold=G.gold;}else lastGold=null;
 }
@@ -3016,6 +3020,7 @@ function onUp(e){if(!drag||drag.id!==e.pointerId)return;var d=drag;drag=null;poi
     if(cofferAt(hx.q,hx.r)){if(G.stash.length>=STASH)return toast('Your item bench is full. Make room to pick the chest up.');G.cofferPos=G.cofferPos.filter(function(w){return !(w.q===hx.q&&w.r===hx.r);});G.stash.push('chest');cofferMode=true;wallMode=false;gateMode=false;save();renderAll();return;}
     if(gateAt(hx.q,hx.r)){if(G.stash.length>=STASH)return toast('Your item bench is full. Make room to pick the gate up.');G.gatePos=null;G.stash.push('gate');gateMode=true;wallMode=false;cofferMode=false;save();renderAll();return;}
     if(wallAt(hx.q,hx.r)){if(G.stash.length>=STASH)return toast('Your item bench is full. Make room to pick the wall up.');G.wallPos=G.wallPos.filter(function(w){return !(w.q===hx.q&&w.r===hx.r);});G.stash.push('wall');wallMode=true;gateMode=false;cofferMode=false;save();renderAll();return;}
+    if((wallMode||cofferMode||gateMode)&&(cellHex(hx.q,hx.r)||(gateMode&&cellHex(hx.q+1,hx.r))))return toast('A hero must stand in the cell');
     if(cofferMode&&!obsAt(hx.q,hx.r)&&!heroAtHex(hx)){if(coffersLeft()<=0)return toast('No chests on your bench. Buy one in the market.');if(G.cofferPos.length>=COFFER_MAX)return toast('Only one chest at a time');chestToBoard();G.cofferPos.push({q:hx.q,r:hx.r});if(coffersLeft()<=0)cofferMode=false;save();renderAll();return;}
     if(gateMode){var gq=hx.q>=COLS-1?hx.q-1:hx.q,ok=[gq,gq+1].every(function(q){return !obsAt(q,hx.r)&&!heroAtHex({q:q,r:hx.r})&&!(G.wallPos||[]).some(function(w){return w.q===q&&w.r===hx.r;})&&!cofferAt(q,hx.r);});
       if(!ok)return toast('The gate needs two free hexes side by side');var bgi=G.stash.indexOf('gate');if(bgi<0)return toast('No gate on your bench');G.stash.splice(bgi,1);G.gatePos={q:gq,r:hx.r};gateMode=false;save();renderAll();return;}
