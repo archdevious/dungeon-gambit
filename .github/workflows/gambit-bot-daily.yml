@@ -1,0 +1,31 @@
+name: Gambit Bot daily
+
+on:
+  schedule:
+    # 10:10 UTC = 00:10 in Pacific/Kiritimati (UTC+14), the start of each new day
+    - cron: '10 10 * * *'
+  workflow_dispatch: {}   # adds a "Run workflow" button for manual runs
+
+concurrency:
+  group: gambit-bot-daily
+  cancel-in-progress: false
+
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright + Chromium
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Play today's Daily Gambit and submit
+        run: |
+          python bot/run_daily.py index.html --submit
