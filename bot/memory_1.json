@@ -1,0 +1,382 @@
+{
+ "trials": [
+  {
+   "kind": "retest",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.6,
+     "rerollGold": 6,
+     "rerollMax": 2
+    },
+    "roster": [
+     "brandt",
+     "vesk",
+     "greymaw",
+     "hale",
+     "nix",
+     "oda",
+     "ember",
+     "ashling",
+     "moss",
+     "mire",
+     "skarra",
+     "ylva",
+     "cogs",
+     "thorne",
+     "sable"
+    ],
+    "mast": "mix",
+    "score": 77
+   },
+   "act": 5,
+   "step": 7,
+   "wins": 33,
+   "score": 57
+  },
+  {
+   "kind": "mutate",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.6,
+     "rerollGold": 6,
+     "rerollMax": 2,
+     "dupe": 60
+    },
+    "roster": [
+     "brandt",
+     "vesk",
+     "greymaw",
+     "hale",
+     "nix",
+     "oda",
+     "ember",
+     "ashling",
+     "moss",
+     "mire",
+     "skarra",
+     "ylva",
+     "cogs",
+     "thorne",
+     "sable"
+    ],
+    "mast": "mix"
+   },
+   "act": 6,
+   "step": 7,
+   "wins": 39,
+   "score": 67
+  },
+  {
+   "kind": "mutate",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.6,
+     "rerollGold": 6,
+     "rerollMax": 2
+    },
+    "roster": [
+     "brandt",
+     "vesk",
+     "greymaw",
+     "hale",
+     "nix",
+     "oda",
+     "ember",
+     "ashling",
+     "moss",
+     "mire",
+     "skarra",
+     "ylva",
+     "cogs",
+     "thorne",
+     "sable"
+    ],
+    "mast": "a"
+   },
+   "act": 6,
+   "step": 7,
+   "wins": 37,
+   "score": 67
+  },
+  {
+   "kind": "explore",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.95,
+     "rerollGold": 10,
+     "rerollMax": 1,
+     "heroMin": 8,
+     "heroDecay": 2,
+     "dupe": 40,
+     "parity": 0,
+     "tankB": 2,
+     "frontB": 3,
+     "spread": 2.5
+    },
+    "roster": [
+     "thorne",
+     "kestrel",
+     "sable",
+     "morrow",
+     "oda",
+     "brandt",
+     "moss",
+     "bramble",
+     "mire",
+     "ylva",
+     "grisk",
+     "ashling",
+     "hale",
+     "pyra",
+     "greymaw"
+    ],
+    "mast": "a"
+   },
+   "act": 4,
+   "step": 7,
+   "wins": 26,
+   "score": 47
+  },
+  {
+   "kind": "mutate",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.6,
+     "rerollGold": 6,
+     "rerollMax": 2
+    },
+    "roster": [
+     "brandt",
+     "vesk",
+     "greymaw",
+     "hale",
+     "nix",
+     "oda",
+     "ember",
+     "ashling",
+     "moss",
+     "mire",
+     "skarra",
+     "ylva",
+     "cogs",
+     "thorne",
+     "sable"
+    ],
+    "mast": "a"
+   },
+   "act": 6,
+   "step": 6,
+   "wins": 37,
+   "score": 66
+  },
+  {
+   "kind": "explore",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.85,
+     "rerollGold": 8,
+     "rerollMax": 2,
+     "heroMin": 12,
+     "heroDecay": 3,
+     "dupe": 80,
+     "parity": 1,
+     "tankB": 4,
+     "frontB": 0,
+     "spread": 1.5
+    },
+    "roster": [
+     "ylva",
+     "ember",
+     "brandt",
+     "vesk",
+     "ashling",
+     "sable",
+     "oda",
+     "mire",
+     "grisk",
+     "kestrel",
+     "bramble",
+     "skarra",
+     "nix",
+     "thorne",
+     "pyra"
+    ],
+    "mast": "b"
+   },
+   "act": 4,
+   "step": 7,
+   "wins": 27,
+   "score": 47
+  },
+  {
+   "kind": "mutate",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.95,
+     "rerollGold": 10,
+     "rerollMax": 2
+    },
+    "roster": [
+     "brandt",
+     "vesk",
+     "greymaw",
+     "hale",
+     "nix",
+     "oda",
+     "ember",
+     "ashling",
+     "moss",
+     "mire",
+     "skarra",
+     "ylva",
+     "cogs",
+     "thorne",
+     "sable"
+    ],
+    "mast": "mix"
+   },
+   "act": 8,
+   "step": 6,
+   "wins": 48,
+   "score": 86
+  },
+  {
+   "kind": "explore",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.95,
+     "rerollGold": 8,
+     "rerollMax": 4,
+     "heroMin": 8,
+     "heroDecay": 2,
+     "dupe": 40,
+     "parity": 1,
+     "tankB": 2,
+     "frontB": 0,
+     "spread": 1.5
+    },
+    "roster": [
+     "morrow",
+     "brandt",
+     "ylva",
+     "ember",
+     "thorne",
+     "ashling",
+     "cogs",
+     "mire",
+     "greymaw",
+     "vesk",
+     "nix",
+     "skarra",
+     "sable",
+     "pyra",
+     "grisk"
+    ],
+    "mast": "mix"
+   },
+   "act": 6,
+   "step": 5,
+   "wins": 34,
+   "score": 65
+  },
+  {
+   "kind": "mutate",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.6,
+     "rerollGold": 6,
+     "rerollMax": 2,
+     "frontB": 2
+    },
+    "roster": [
+     "brandt",
+     "vesk",
+     "greymaw",
+     "hale",
+     "nix",
+     "oda",
+     "ember",
+     "ashling",
+     "moss",
+     "mire",
+     "skarra",
+     "ylva",
+     "cogs",
+     "thorne",
+     "sable"
+    ],
+    "mast": "mix"
+   },
+   "act": 4,
+   "step": 7,
+   "wins": 27,
+   "score": 47
+  },
+  {
+   "kind": "explore",
+   "setup": {
+    "cfg": {
+     "restBelow": 0.85,
+     "rerollGold": 4,
+     "rerollMax": 0,
+     "heroMin": 14,
+     "heroDecay": 4,
+     "dupe": 40,
+     "parity": 0,
+     "tankB": 2,
+     "frontB": 2,
+     "spread": 2.5
+    },
+    "roster": [
+     "oda",
+     "ember",
+     "nix",
+     "thorne",
+     "greymaw",
+     "pyra",
+     "cogs",
+     "hale",
+     "skarra",
+     "ylva",
+     "mire",
+     "ashling",
+     "vesk",
+     "brandt",
+     "moss"
+    ],
+    "mast": "a"
+   },
+   "act": 3,
+   "step": 7,
+   "wins": 16,
+   "score": 37
+  }
+ ],
+ "best": {
+  "cfg": {
+   "restBelow": 0.95,
+   "rerollGold": 10,
+   "rerollMax": 2
+  },
+  "roster": [
+   "brandt",
+   "vesk",
+   "greymaw",
+   "hale",
+   "nix",
+   "oda",
+   "ember",
+   "ashling",
+   "moss",
+   "mire",
+   "skarra",
+   "ylva",
+   "cogs",
+   "thorne",
+   "sable"
+  ],
+  "mast": "mix",
+  "score": 86,
+  "wins": 48
+ }
+}
