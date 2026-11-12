@@ -13,7 +13,7 @@ C='#ov .dlg .choice, #ov .dlg .btn, #ov .hb'
 SETUP="""(A)=>{var R=A.roster,MP=A.mast,d=window.__dd,m=JSON.parse(localStorage.getItem('dd1_meta')||'{}');m.upg={chest:3,recruit:1,scout:1,medic:2,mentor:1,haggle:1,quarter:2,vet:1,freewall:1,tchest:1,gate:1,heir:1};
  m.unl={};Object.keys(d.HEROES).forEach(function(k){m.unl['h_'+k]=1;});Object.keys(d.RELICS).forEach(function(k){m.unl['r_'+k]=1;});['tamsin','dole','vey'].forEach(function(k){m.unl['c_'+k]=1;});
  m.mast={};Object.keys(d.HEROES).forEach(function(k){var sup=/tank|support/.test(d.HEROES[k].role.toLowerCase()),r=MP==='mix'?(sup?'a':'b'):MP;m.mast[k]={xp:9999,p:[r,r+'1','x:'+r+'2']};});
- if(R.length)m.roster=R;m.ascMax=10;m.wins=Math.max(m.wins||0,1);m.renown=500;localStorage.setItem('dd1_meta',JSON.stringify(m));}"""
+ if(R.length)m.roster=R;m.ascMax=10;m.wins=Math.max(m.wins||0,1);m.renown=500;m.tutOff=1;localStorage.setItem('dd1_meta',JSON.stringify(m));}"""
 def main():
     with sync_playwright() as p:
         b=p.chromium.launch();ctx=b.new_context(viewport={'width':412,'height':900});pg=ctx.new_page();errs=[];pg.on('pageerror',lambda e:errs.append(str(e)))

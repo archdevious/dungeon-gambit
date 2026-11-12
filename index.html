@@ -1427,7 +1427,7 @@ function statFight(win,boss){try{var s=ST(),T=S.stt[0],n=0,k;if(win){s.fw++;if(b
   saveMeta();}catch(e){}}
 function statBonus(room,kills,secs){try{var s=ST(),b=s.bn[room]=s.bn[room]||{n:0,best:0,tot:0};b.n++;b.tot+=kills;if(secs>(b.long||0))b.long=secs;if(kills>b.best)b.best=kills;saveMeta();}catch(e){}}
 function statGold(n){try{ST().gold+=n;}catch(e){}}
-function finishRun(){if(!G||G.renownDone)return 0;G.renownDone=true;if(!G.dly&&!BOTON){try{lbEndlessCheck(G);}catch(e){}}try{var s=ST();(G.relics||[]).forEach(function(k){s.rel[k]=(s.rel[k]||0)+1;});}catch(e){}var r=renownFor();META.renown+=r;META.earned+=r;commitXP();
+function finishRun(){if(!G||G.renownDone)return 0;G.renownDone=true;if(!G.dly&&!BOTON&&!G.tut){try{lbEndlessCheck(G);}catch(e){}}try{var s=ST();(G.relics||[]).forEach(function(k){s.rel[k]=(s.rel[k]||0)+1;});}catch(e){}var r=renownFor();META.renown+=r;META.earned+=r;commitXP();
   if(G.endless&&G.act>META.bestDeep)META.bestDeep=G.act;saveMeta();return r;}
 /* foe scaling from ascension (applied to fresh units) */
 function ascFoes(units){units.forEach(function(u){var hm=1,am=1;if(DAILY){hm*=1.1+((DAILY.twist.fHp||1)-1);am*=1.1+((DAILY.twist.fAtk||1)-1);}
@@ -2394,7 +2394,7 @@ function confirmSell(uid){var h=heroByUid(uid);if(!h||phase!=='prep'||busy())ret
   dialog('<h2>Sell '+esc(d.n)+'?</h2><p>You get <b style="color:var(--gold)">'+sellValue(h)+' gold</b> (75% of what you paid).'+(n?' '+(n<=room?'Their '+n+' item'+(n>1?'s go':' goes')+' to your bench.':'Your bench only has room for '+room+' of their '+n+' items; the rest are sold too.'):'')+'</p>',
     [{html:'<b>Sell</b>',fn:function(){sellHero(uid);}},{html:'<b>Keep</b>',fn:function(){}}],true,true);}
 /* ---------- level ups ---------- */
-function levelUp(h,done){SFX.play('level');
+function levelUp(h,done){if(tutPath(h,done))return;SFX.play('level');
   var d=HEROES[h.hid];
   if(h.lv===3&&!h.path){
     dialog('<h2>'+esc(d.n)+' reaches level 3</h2><p>Choose a path. It changes '+esc(d.ab.n)+' for the rest of the run.</p>',d.paths.map(function(pp){return {html:'<b>'+esc(pp.n)+(pp.cls2?' <span class="muted">+ '+CLS_LABEL[pp.cls2]+'</span>':'')+'</b><span>'+esc(pp.d)+(pp.cls2?' Also becomes a '+CLS_LABEL[pp.cls2]+' (counts for class relics and items).':'')+'</span>',fn:function(){h.path=pp.k;done();}};}),true,false,'Choosing a path for '+d.n);return;}
@@ -2432,7 +2432,7 @@ function encHTML(e){
   var dl={easy:'EASY',hard:'HARD',deadly:'DEADLY',boss:'BOSS'}[e.diff],dc={easy:'#5bbf4a',hard:'#ffb347',deadly:'#e0574b',boss:'#e2b23f'}[e.diff];
   return '<div class="row">'+units+'</div><b>'+esc(e.name)+'</b><span class="diff" style="color:'+dc+'">'+dl+'</span>'+(e.diff==='boss'?'<small>'+esc(BOSSES[e.foes[0].i].d)+'</small>':'')+'<ul>'+rw.join('')+'</ul>';
 }
-function enterPrep(){phase='prep';closeDialog();G.wallPos=G.wallPos||[];if(G.walls){var ex=G.walls-G.wallPos.length;while(ex-->0&&G.stash.length<STASH)G.stash.push('wall');G.walls=0;}wallMode=gateMode=cofferMode=false;G.cofferPos=G.cofferPos||[];clearObstacleHexes();if(DAILY)dre('p'+G.act+'.'+G.step);prepFoes=foeUnits(G.enc);save();renderAll();}
+function enterPrep(){phase='prep';closeDialog();G.wallPos=G.wallPos||[];if(G.walls){var ex=G.walls-G.wallPos.length;while(ex-->0&&G.stash.length<STASH)G.stash.push('wall');G.walls=0;}wallMode=gateMode=cofferMode=false;G.cofferPos=G.cofferPos||[];clearObstacleHexes();if(DAILY)dre('p'+G.act+'.'+G.step);prepFoes=foeUnits(G.enc);save();renderAll();if(G.tut)setTimeout(tutPrep,60);}
 function startFight(){if(busy())return;
   if(phase!=='prep')return;var b=onBoard();if(!b.length)return toast('Place at least one hero on the board');
   var pcell=G.enc.room&&roomInfo(G.enc.room).cells.filter(function(c){return c.r>=MID;})[0];
@@ -2638,10 +2638,30 @@ function heroThemeChips(h){var s=themeSrc(h);return '<div class="chips">'+Object
 function themeChips(ts){return '<div class="chips">'+ts.map(function(t){return '<span class="chip" title="'+esc(themeTip(t))+'"><img src="'+iconURL(t,2)+'" alt="">'+THEMES[t].n+'</span>';}).join('')+'</div>';}
 var lastGold=null;var toastT=null;function toast(m){if(/Not enough|full|No room|already|Make room|No walls|need at least/i.test(m))SFX.play('err');var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true;},2400);}
 /* ---------- title / guide ---------- */
+/* ---------- tutorial: a real run with short tips, from the first hero through act 2, floor 1 ---------- */
+function tutDlg(h2,body,then){dialog('<h2>'+h2+'</h2>'+body,[{html:'<b>Got it</b>',fn:function(){renderAll();if(then)then();}}],true,true);}
+function tutSeen(k){G.tutSeen=G.tutSeen||{};if(G.tutSeen[k])return true;G.tutSeen[k]=1;save();return false;}
+function tutStart(){META.tutOff=1;saveMeta();
+  dialog('<h2>Tutorial</h2><p>You will play a real run with short tips along the way. It goes through the first boss and the bonus round, and ends on the first floor of act 2.</p><p>Your Renown and hero XP count as normal. Tutorial runs do not go on the leaderboards.</p>',
+    [{html:'<b>Start</b>',fn:function(){startRunAt(0,null);G.tut=true;G.tutSeen={};}},{html:'<b>Back</b>',fn:showTitle}],true,true);}
+function tutPrep(){if(!G||!G.tut||phase!=='prep'||dlgOpen)return;var a=G.act,s=G.step,td=!!(G.enc&&G.enc.td);
+  if(a===2&&s===1&&!td)return tutEnd();
+  if(td){if(!tutSeen('bonus'))tutDlg('Bonus round','<p>After each of the first three bosses comes a bonus round. Foes walk along the track toward the exit, and every foe you stop pays 1 gold. The round ends when 5 foes get through.</p><p>Heroes cannot move here. Put melee heroes right next to as much track as you can, and ranged heroes in a central spot where they reach the most track. Spots near the start of the track are better than spots near the exit.</p>');return;}
+  if(a!==1)return;
+  if(s===1&&!tutSeen('market'))return tutDlg('The market','<p>Buy heroes from the market below with gold. Buying a second copy of a hero you own levels them up, and level-ups make heroes much stronger. That is usually the best use of your gold.</p><p>New heroes go onto the board on their own. Drag a hero to move them. <b>Tanks</b> go in front, fighters behind them, and <b>casters and archers</b> in the back row. Press <b>FIGHT</b> when you are ready.</p>');
+  if(s===2&&!tutSeen('fight'))return tutDlg('How fights work','<p>Fights play out on their own. Win or lose, every fight pays 5 gold.</p><p>Losing costs your party health (the bar at the top). If it reaches 0, the run ends. After some fights you choose a reward, such as gold, an item or a relic, or you can rest to heal instead.</p>');
+  if(s===3&&!tutSeen('effects'))return tutDlg('Effects','<p>Every hero has two effects, such as burn, frost, poison, bleed, shield or thorns. When 2, 4 or 6 of your heroes on the board share an effect, it gets stronger for the whole party.</p><p>When choosing heroes, look for ones that share effects with your team.</p>');
+  if(s===4&&!tutSeen('items'))return tutDlg('Items and relics','<p><b>Items</b> go on one hero (up to 3 each). Give armor to tanks, spell items to casters, and weapons to attackers.</p><p><b>Relics</b> help your whole party for the rest of the run. Both are good, but a level-up for a key hero is usually worth more.</p>');
+  if(s===5&&!tutSeen('shop'))return tutDlg('Reroll and freeze','<p><b>REROLL</b> swaps the market for new offers. It costs a little gold.</p><p><b>FREEZE</b> keeps the market as it is for the next round. Use it when something you want is there but you cannot afford it yet.</p>');
+  if(s===STEPS&&!tutSeen('boss'))return tutDlg('Boss fight','<p>The last fight of each act is a boss. Bosses are much tougher, so spend your gold before this fight.</p><p>If you lose, it costs health and you face the boss again with a fresh market. Beat it to move on to a bonus round.</p>');}
+function tutPath(h,done){if(G&&G.tut&&h.lv===3&&!h.path&&!tutSeen('path')){tutDlg('Choose a path','<p>At level 3 a hero picks one of three paths. A path changes their ability for the rest of the run, and some also give them a second class or earn gold. Read them and pick what your team needs.</p>',function(){levelUp(h,done);});return true;}return false;}
+function tutEnd(){if(tutSeen('end'))return;var rn=finishRun();try{localStorage.removeItem('dd1_save');}catch(e){}phase='over';META.tutDone=1;saveMeta();renderAll();
+  dialog('<h2>Tutorial complete</h2><p>You get an extra hero slot on the board after beating each of the first 3 bosses. After act 3 you can enter <b>Endless mode</b>, where you see how deep into the dungeon you can reach.</p><p>You earned <b style="color:var(--gold)">'+rn+' Renown</b>. Spend it at the Camp on upgrades that help every run.</p><p><b>Good luck!</b></p>',[{html:'<b>Back to the title</b>',fn:function(){G=null;showTitle();}}],true,true);}
 function showTitle(){if(BOTON)botCleanup();dailyLeave();phase='menu';closeDialog();renderAll();
   var sv=loadSave(),best=META.bestAct?(META.wins?'Full clears: '+META.wins+'. ':'')+(META.bestDeep?'':'Deepest: act '+Math.min(3,META.bestAct)+(META.bestAct<4?', step '+META.bestStep:'')+'.')+(META.ascMax?' Ascension unlocked: '+META.ascMax+'.':'')+(META.bestDeep?' Endless record: depth '+META.bestDeep+'.':''):'';
   var ch=[];if(sv)ch.push({html:'<b>Continue run</b>',fn:function(){G=sv;resumeRun();}});
-  ch.push({html:'<b>'+(sv?'New run':'Begin')+'</b>',fn:function(){if(sv)endRunConfirm(sv,true);else startRun();}});
+  ch.push({html:'<b>'+(sv?'New run':'Begin')+'</b>',fn:function(){if(sv)endRunConfirm(sv,true);else if(!META.runs&&!META.tutOff)dialog('<h2>New to Dungeon Gambit?</h2><p>The tutorial walks you through a real run, from your first hero to act 2.</p>',[{html:'<b>Play the tutorial</b>',fn:tutStart},{html:'<b>Skip</b>',fn:function(){META.tutOff=1;saveMeta();startRun();}}],true,true);else startRun();}});
+  ch.push({html:'<b>Tutorial</b>',fn:tutStart});
   if(sv)ch.push({html:'<b>Retire run</b>',fn:function(){endRunConfirm(sv,false);}});
   ch.push({html:'<b>Daily Gambit</b>',fn:function(){dailyMenu();}});
   ch.push({html:'<b>Camp ('+META.renown+')</b>',fn:function(){showCamp(showTitle);}});
