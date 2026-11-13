@@ -2043,19 +2043,20 @@ function FLT(re){if(typeof bflashTxt==='function'&&LIVE)bflashTxt(re);}
 var LIVE=false;
 function why(s){LOG.push('» '+s);}
 var SPELLITEM={book:10,echo:9,crystal:8,gcast:8,gsup:7};
-var ITEMP={book:10,echo:9,crystal:8,gcast:8,gsup:7,boots:6,sword:5,mail:7,garch:5,gass:5,gtank:6,gfight:5,fang:4,aegis:7,spikes:6,ember:5,shard:4,vial:5,serrate:4};
+var ITEMP={boots:10,echo:9,crystal:9,shard:8,book:7,mail:7,aegis:6,vial:6,sword:5,ember:5,serrate:4,spikes:4,fang:3,gcast:8,gsup:7,garch:7,gass:7,gtank:6,gfight:5};
+var ATKH={morrow:1,thorne:1,skarra:1},PCTH={moss:1}; /* from the code: only these abilities use attack; Moss's Blight is % of foe health */
 var RELICP={etome:12,loom:9,font:8,skull:8,glass:8,ccast:7,csup:6,crown:7,banner:6,whet:6,drum:6,feather:6,lantern:5,brand:5,heart:5,censer:5,chalice:4,tooth:5,carch:4,quiver:3,kit:4,belt:4,prism:4,pack:3,rear:3,vanguard:4,cannon:5,axe:4,horn:4,locket:3,bell:3,ctank:3,cfight:2,cass:3,coin:3,bulwark:3,briar:2,lonewolf:0,mason:0,hoard:0,lens:3};
-var HEROP={sable:10,nix:10,grisk:9,kestrel:9,moss:9,ember:8,ylva:8,cogs:8,ashling:7,hale:7,vesk:7,pyra:6,oda:6,thorne:5,mire:5,greymaw:5,brandt:5,bramble:5,skarra:5,morrow:3};
+var HEROP={moss:10,sable:9,nix:9,kestrel:10,vesk:9,morrow:9,grisk:8,ember:8,ylva:8,cogs:8,thorne:7,ashling:7,hale:7,pyra:6,oda:6,mire:5,greymaw:5,brandt:5,bramble:5,skarra:5};
 var EARLYP={nix:10,brandt:9,hale:9,pyra:8,sable:8,ember:8,thorne:6,bramble:6,ylva:6,kestrel:5,vesk:5,moss:4,cogs:4,grisk:4,oda:3,mire:4,greymaw:4,skarra:4,morrow:2,ashling:1};
 /* hero value: early-game rating in act 1, blending into the late-game rating by act 3 */
 function HV(k){var a=d.G?d.G.act:1,w=a<=1?1:(a===2?.5:0);return w*(EARLYP[k]||5)+(1-w)*(HEROP[k]||5);}
 var PERKP={arcana:10,focus:9,tough:7,haste:6,edge:5,plate:4,leech:4,a_burn:3,a_frost:2,a_poison:3,a_bleed:2,a_shield:2,a_thorns:1};
 var PATHP={'pickpocket':8,'gutter':6,'hellfire':5,'grasping roots':8,'heartwood':6,'seedling':5,'crusader':9,'last stand':6,'guardian':5,
 'the big one':9,'prospector':6,'sticky bombs':4,'hearthfire':9,'phoenix':6,'wildfire':5,'alpha':9,'pack hunter':5,'feral':5,
-'salvager':7,'volatile':7,'homebrew':6,'purify':8,'iron fist':6,'lay on hands':6,'razorwind':8,'hailstorm':7,'scavenger':6,
-'ambush':8,'toxin':8,'hydra':5,'phantom':6,'reaper':6,'soul harvest':5,'blight':8,'overgrowth':7,'grove':6,
+'salvager':7,'volatile':7,'homebrew':6,'purify':8,'iron fist':6,'lay on hands':6,'razorwind':8,'hailstorm':9,'scavenger':6,
+'ambush':8,'toxin':8,'hydra':5,'phantom':10,'reaper':4,'soul harvest':3,'blight':10,'overgrowth':7,'grove':6,
 'apothecary':8,'remedy':8,'contagion':5,'dawnhammer':7,'forgeblessing':7,'runeward':4,'beacon':8,'inferno':8,'bastion':4,
-'grave robber':9,'plague lord':8,'lich':7,'bloodrage':7,'juggernaut':5,'warcry':5,'riposte':7,'disarm':6,'coup de grace':4,
+'grave robber':9,'plague lord':8,'lich':7,'bloodrage':7,'juggernaut':5,'warcry':5,'riposte':9,'disarm':6,'coup de grace':4,
 'trapper':9,'bounty hunter':8,'huntress':6,'shatter':9,"valkyrie's flight":6,'avalanche':5};
 var ROLEPERK={tank:{tough:10,plate:9,leech:6,focus:6,haste:4,arcana:4,edge:3},cast:{arcana:10,focus:9,haste:5,tough:6,plate:3,edge:2,leech:2},hit:{edge:10,haste:9,leech:7,tough:6,focus:5,arcana:4,plate:4}};
 var PERKWHY={tank:'tanks want health and armor',cast:'casters and supports want ability power and mana',hit:'attackers want attack and speed'};
@@ -2093,12 +2094,20 @@ function pickBy(cs,fn){var best=-1,bi=0;cs.forEach(function(c,i){var v=fn(c,name
 function itemKeyByName(n){for(var k in d.ITEMS)if(d.ITEMS[k].n===n)return k;return null;}
 function relicKeyByName(n){n=n.replace(/\s*(II|III)$/,'');for(var k in d.RELICS)if(d.RELICS[k].n===n)return k;return null;}
 function heroKeyByName(n){for(var k in d.HEROES)if(d.HEROES[k].n===n)return k;return null;}
-function wantHeroFor(itemKey){var G=d.G,cand=G.party.filter(function(h){return h.items.length<d.itemCap(h);});if(!cand.length)return null;
+function wantHeroFor(itemKey){var G=d.G,cand=G.party.filter(function(h){return h.items.length<d.itemCap(h);});if(!cand.length)return null;var CI=d.ITEMS[itemKey];if(CI&&CI.cls){var m=cand.filter(function(h){return clsOf(h).indexOf(CI.cls)>=0;});if(m.length){m.sort(function(a,b){return (survScore(b)+b.lv*.05)-(survScore(a)+a.lv*.05);});return m[0];}}
   var best=null,bs=-1e9;cand.forEach(function(h){var s=heroScore0(h)+(SPELLITEM[itemKey]?(isCaster(h)?6:-4):0);var it=d.ITEMS[itemKey];
+    if(itemKey==='book')s+=(ATKH[h.hid]||PCTH[h.hid])?-12:4; /* ability power does nothing for Moss, Morrow or Thorne */
+    if(/^(sword|fang|gass)$/.test(itemKey))s+=ATKH[h.hid]?10:-8;
+    if(/^(boots|echo|crystal)$/.test(itemKey)&&PCTH[h.hid])s+=6;
+    if(itemKey==='shard'&&!isCaster(h)&&d.HEROES[h.hid].th.indexOf('frost')<0)s+=3;
     if(it&&it.th&&d.HEROES[h.hid].th.indexOf(it.th)>=0)s+=3;
     if(/mail|aegis|spikes|gtank/.test(itemKey))s+=isTank(h)?5:0;
     if(/sword|boots|gass|garch|fang|gfight/.test(itemKey))s+=isCaster(h)?-2:(isRanged(h)||/assassin|fighter/.test(role(h))?3:0);
     s-=h.items.length*CFG.spread;if(!h.pos)s-=3;if(s>bs){bs=s;best=h;}});return best;}
+function clsOf(h){var r=(d.HEROES[h.hid].role||'').toLowerCase(),c=[];[['tank','tank'],['fighter','fight'],['assassin','ass'],['marksman','arch'],['caster','cast'],['support','sup']].forEach(function(x){if(r.indexOf(x[0])>=0)c.push(x[1]);});
+  if(h.path){var P=d.HEROES[h.hid].paths.filter(function(p){return p.k===h.path;})[0];if(P&&P.cls2)c.push(P.cls2);}return c;}
+var SURV={};
+function survScore(h){var s=SURV[h.uid];return s?s.alive/Math.max(1,s.n):(isRanged(h)||isCaster(h)?.8:.5);}
 function heroScore0(h){return (HV(h.hid)||5)+h.lv;}
 function roleKind(k){var r=(d.HEROES[k].role||'').toLowerCase();return /tank/.test(r)?'tank':(/caster|support/.test(r)?'cast':'hit');}
 function tierWord(k){var p=HV(k)||5;return p>=9?'one of the strongest heroes':(p>=7?'a strong hero':'a solid hero');}
@@ -2161,7 +2170,7 @@ function placeAll(){if(CFG.noPlace)return;var G=d.G,cp=cap(),all=G.party.slice()
 function offerScore(o){var G=d.G;
   if(o.type==='hero'){var h=G.party.filter(function(x){return x.hid===o.key;})[0];if(h){if(h.lv>=d.MAXLV)return -1;return 5+CFG.dupe+(HV(o.key)>=8?4:(HV(o.key)>=6?2:0))+h.lv*1.5;}
      var n=G.party.length;if(n>=cap()+(CFG.bench||0))return -1;var sc=heroScore(o.key);/* an empty board slot is never better than a hero: fill the board first, be picky only about extras */ if(n<cap())return sc+8;if(sc<CFG.heroMin-(G.step-1)*CFG.heroDecay)return -1;return sc;}
-  if(o.type==='item'){var k=o.key.split(':')[0];var defHeld=G.party.some(function(h){return h.items.some(function(x){return /^(mail|aegis|spikes|gtank)/.test(x);});});return (ITEMP[k]||3)+1+((!defHeld&&/^(mail|aegis|spikes|gtank)$/.test(k))?6:0);}
+  if(o.type==='item'){var k=o.key.split(':')[0];var CI=d.ITEMS[k];if(CI&&CI.cls&&CFG.classItems!==0){var who=G.party.filter(function(h){return h.pos&&clsOf(h).indexOf(CI.cls)>=0&&h.items.length<d.itemCap(h);});if(!who.length)return -1;var stable=G.hp>=(G.maxHp||100)*.6;return G.act<=3?(stable?16:4):(G.act<=6?9:3);}var defHeld=G.party.some(function(h){return h.items.some(function(x){return /^(mail|aegis|spikes|gtank)/.test(x);});});return (ITEMP[k]||3)+1+((!defHeld&&/^(mail|aegis|spikes|gtank)$/.test(k))?6:0);}
   if(o.type==='relic'){var rk=o.key.split(':')[0].replace(/\d$/,'');rk=o.key.indexOf(':')>0?o.key.split(':')[0]:o.key;var base=d.RELICS[rk]?rk:rk;var rp=relicPri(base);if(rp<=-100)return -1;return CFG.relicAll?18+rp*2:rp+2;}
   if(o.type==='build')return o.key==='wall'?2:(o.key==='gate'?1:0);
   return 0;}
@@ -2175,6 +2184,7 @@ function prep(){var G=d.G,n=0,acted=false,fr=0;
     if(bi>=0){var oo=G.shop[bi];LOG.push('BUY '+oo.type+':'+oo.key+' '+d.priceOf(oo)+'g (gold '+G.gold+')');var pr=d.priceOf(oo);
       if(oo.type==='hero'){var own=G.party.filter(function(x){return x.hid===oo.key;})[0];why(own?('Levels up '+d.HEROES[oo.key].n+' to '+(own.lv+1)+' ('+pr+'g): level-ups are the best use of gold.'):('Recruits '+d.HEROES[oo.key].n+' ('+pr+'g): '+heroWhy(oo.key)+'.'));}
       else if(oo.type==='relic'){var rb=oo.key.split(':')[0];why('Buys the relic '+(d.RELICS[rb]?d.RELICS[rb].n:rb)+' ('+pr+'g): nothing better to spend on this round (level-ups come first).');}
+      else if(oo.type==='item'&&d.ITEMS[oo.key.split(':')[0]].cls){why('Buys '+d.ITEMS[oo.key.split(':')[0]].n+' ('+pr+'g): class items start weak but grow every fight a matching hero survives, so it buys them early and keeps them all run.');}
       else if(oo.type==='item'){var ib=oo.key.split(':')[0];why('Buys '+(d.ITEMS[ib]?d.ITEMS[ib].n:ib)+' ('+pr+'g): spare gold, and its heroes have free item slots.');}FL(document.querySelectorAll('#market .card')[bi]);d.buy(bi);acted=true;if(dlg())return 'dlg';if(CFG.oneAct){placeAll();d.renderAll();return 'acted';}continue;}
     var wd=G.shop.filter(function(o){return !o.sold&&wantedDupe(o);});
     if(wd.length){if(!G.frozen){G.frozen=true;LOG.push('FREEZE shop: '+d.HEROES[wd[0].key].n+' would level up but costs '+d.priceOf(wd[0])+' (gold '+G.gold+')');why('Freezes the shop: '+d.HEROES[wd[0].key].n+' is here and would level up, but costs '+d.priceOf(wd[0])+'g and it has '+G.gold+'g. Keeps it for next round.');acted=true;}break;}
@@ -2184,7 +2194,7 @@ function prep(){var G=d.G,n=0,acted=false,fr=0;
     if(G.gold>=rc+CFG.rerollGold&&(G.rr||0)<CFG.rerollMax){var g0=G.gold;LOG.push('REROLL '+rc+'g');why('Rerolls ('+rc+'g): it has gold to spare and nothing here is worth buying.');FLT(/^REROLL/);d.reroll();acted=true;continue;}
     break;}
   placeAll();return acted?'acted':'idle';}
-function fight(){var G=d.G;placeAll();d.startFight();var k=0;while(d.S&&!d.S.over&&k++<9000)d.simStep(d.S);var win=d.S&&d.S.winner===0;d.endFight();return win;}
+function fight(){var G=d.G;placeAll();d.startFight();var k=0;while(d.S&&!d.S.over&&k++<9000)d.simStep(d.S);var win=d.S&&d.S.winner===0;try{d.S.units.forEach(function(u){if(u.team===0&&u.kind==='hero'&&u.ref){var r=SURV[u.ref]||(SURV[u.ref]={n:0,alive:0});r.n++;if(u.hp>0)r.alive++;}});}catch(e){}d.endFight();return win;}
 function tick(){var D=dlg();if(!d.G)return {s:'nog'};
   if(D){var r=handleDialog(D);return {s:r==='END'?'END':'dlg',log:LOG.splice(0)};}
   if(d.phase==='prep'){var r=prep();if(r==='dlg')return {s:'dlg',log:LOG.splice(0)};
