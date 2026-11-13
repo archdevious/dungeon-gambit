@@ -1,7 +1,7 @@
 /* Gambit Bot. The same code runs Watch the bot inside the game (botLiveMake in index.html). */
 window.BOT=(function(){
 function botLiveMake(){
-var d=window.__dd, LOG=[], unknown={}, CFG={noPlace:false,bench:0,restBelow:.95,rerollGold:10,rerollMax:2,buyMin:6,spread:1.5,dupe:60,heroMin:12,heroDecay:3,parity:1,relicAll:0,trainB:20,tankB:0,frontB:0,rolePerk:1};
+var d=window.__dd, LOG=[], unknown={}, CFG={noPlace:false,bench:0,restBelow:.95,rerollGold:10,rerollMax:2,buyMin:6,spread:8,dupe:60,heroMin:12,heroDecay:3,parity:1,relicAll:0,trainB:20,tankB:0,frontB:0,rolePerk:1,itemB:0};
 function log(s){LOG.push(s);}
 function CLK(el){if(typeof bclk==='function'&&LIVE)bclk(el);else el.click();}
 function FL(el){if(typeof bflash==='function'&&LIVE)bflash(el);}
@@ -24,8 +24,8 @@ var PATHP={'pickpocket':8,'gutter':6,'hellfire':5,'grasping roots':8,'heartwood'
 'apothecary':8,'remedy':8,'contagion':5,'dawnhammer':7,'forgeblessing':7,'runeward':4,'beacon':8,'inferno':8,'bastion':4,
 'grave robber':9,'plague lord':8,'lich':7,'bloodrage':7,'juggernaut':5,'warcry':5,'riposte':9,'disarm':6,'coup de grace':4,
 'trapper':9,'bounty hunter':8,'huntress':6,'shatter':9,"valkyrie's flight":6,'avalanche':5};
-var ROLEPERK={tank:{tough:10,plate:9,leech:6,focus:6,haste:4,arcana:4,edge:3},cast:{arcana:10,focus:9,haste:5,tough:6,plate:3,edge:2,leech:2},hit:{edge:10,haste:9,leech:7,tough:6,focus:5,arcana:4,plate:4}};
-var PERKWHY={tank:'tanks want health and armor',cast:'casters and supports want ability power and mana',hit:'attackers want attack and speed'};
+var ROLEPERK={tank:{tough:10,arcana:7,focus:6,leech:6,plate:5,haste:4,edge:3},cast:{arcana:10,focus:9,haste:5,tough:6,plate:3,edge:2,leech:2},hit:{edge:10,haste:9,leech:7,tough:6,focus:5,arcana:4,plate:4}};
+var PERKWHY={tank:'a tank',cast:'a caster or support',hit:'an attacker'};
 var EXPL={click:null,flash:null};
 function hasTheme(t){return d.G.party.some(function(h){return d.HEROES[h.hid].th.indexOf(t)>=0;});}
 function cntRole(re){return d.G.party.filter(function(h){return re.test(role(h));}).length;}
@@ -103,7 +103,8 @@ function handleDialog(D){
   else if(/perk|level|train/.test(t)||cs.some(function(c){return /Arcana|Toughness|Keen Edge|Haste|Focus|Plating|Lifeleech|Attune/.test(nameOf(c));})){
      var who=heroKeyByName(title.replace(/\s+reaches.*$/,'')),rk=who?roleKind(who):'hit',RP=ROLEPERK[rk];
      picked=pickBy(cs,function(c,n){var k=null;for(var pk in PERKP){var P=d.PERKS.filter(function(x){return x.k===pk})[0];if(P&&P.n===n)k=pk;}return k?(CFG.rolePerk?(RP[k]!=null?RP[k]:2):PERKP[k]):0;});
-     why('Perk: '+picked+' - '+PERKWHY[rk]+'.');}
+     var PK=d.PERKS.filter(function(x){return x.n===picked;})[0],top=null,tv=-1;for(var q in RP)if(RP[q]>tv){tv=RP[q];top=q;}var TP=d.PERKS.filter(function(x){return x.k===top;})[0];
+     why('Perk: '+picked+(PK?' ('+PK.d.replace(/\.$/,'')+')':'')+' - '+(PK&&PK.k===top?'the most useful perk for '+PERKWHY[rk]+'.':'the best of these for '+PERKWHY[rk]+(TP?' ('+TP.n+' was not offered).':'.')));}
   else if(/victory|defeat|continue/.test(t)||cs.length===0){}
   else{ // unknown: log and pick the first
      if(!unknown[title]){unknown[title]=cs.map(function(c){return c.innerText.replace(/\n/g,' / ').slice(0,80);});}
@@ -136,13 +137,14 @@ function placeAll(){if(CFG.noPlace)return;var G=d.G,cp=cap(),all=G.party.slice()
 function offerScore(o){var G=d.G;
   if(o.type==='hero'){var h=G.party.filter(function(x){return x.hid===o.key;})[0];if(h){if(h.lv>=d.MAXLV)return -1;return 5+CFG.dupe+(HV(o.key)>=8?4:(HV(o.key)>=6?2:0))+h.lv*1.5;}
      var n=G.party.length;if(n>=cap()+(CFG.bench||0))return -1;var sc=heroScore(o.key);/* an empty board slot is never better than a hero: fill the board first, be picky only about extras */ if(n<cap())return sc+8;if(sc<CFG.heroMin-(G.step-1)*CFG.heroDecay)return -1;return sc;}
-  if(o.type==='item'){var k=o.key.split(':')[0];var CI=d.ITEMS[k];if(CI&&CI.cls&&CFG.classItems!==0){var who=G.party.filter(function(h){return h.pos&&clsOf(h).indexOf(CI.cls)>=0&&h.items.length<d.itemCap(h);});if(!who.length)return -1;var stable=G.hp>=(G.maxHp||100)*.6;return G.act<=3?(stable?16:4):(G.act<=6?9:3);}var defHeld=G.party.some(function(h){return h.items.some(function(x){return /^(mail|aegis|spikes|gtank)/.test(x);});});return (ITEMP[k]||3)+1+((!defHeld&&/^(mail|aegis|spikes|gtank)$/.test(k))?6:0);}
+  if(o.type==='item'){var k=o.key.split(':')[0];var CI=d.ITEMS[k];if(CI&&CI.cls&&CFG.classItems!==0){var who=G.party.filter(function(h){return h.pos&&clsOf(h).indexOf(CI.cls)>=0&&h.items.length<d.itemCap(h);});if(!who.length)return -1;var stable=G.hp>=(G.maxHp||100)*.6;return G.act<=3?(stable?16:4):(G.act<=6?9:3);}var defHeld=G.party.some(function(h){return h.items.some(function(x){return /^(mail|aegis|spikes|gtank)/.test(x);});});var slotB=(CFG.itemB&&G.party.some(function(h){return h.pos&&h.items.length<d.itemCap(h);}))?CFG.itemB:0;return slotB+(ITEMP[k]||3)+1+((!defHeld&&/^(mail|aegis|spikes|gtank)$/.test(k))?6:0);}
   if(o.type==='relic'){var rk=o.key.split(':')[0].replace(/\d$/,'');rk=o.key.indexOf(':')>0?o.key.split(':')[0]:o.key;var base=d.RELICS[rk]?rk:rk;var rp=relicPri(base);if(rp<=-100)return -1;return CFG.relicAll?18+rp*2:rp+2;}
   if(o.type==='build')return o.key==='wall'?2:(o.key==='gate'?1:0);
   return 0;}
 function wantedDupe(o){if(o.type!=='hero')return false;var G=d.G;return G.party.some(function(h){return h.hid===o.key&&h.pos&&h.lv<d.MAXLV;});}
 function prep(){var G=d.G,n=0,acted=false,fr=0;
   var wi;while((wi=G.stash.indexOf('wall'))>=0){G.stash.splice(wi,1);G.gold+=3;LOG.push('SELL free wall +3g');why('Sells the free wall for 3 gold: gold for level-ups is worth more than a wall.');acted=true;if(CFG.oneAct){d.renderAll();return 'acted';}}
+  for(var si=G.stash.length-1;si>=0;si--){var sk=G.stash[si];if(!d.ITEMS[sk.split(':')[0]])continue;var sh=wantHeroFor(sk.split(':')[0]);if(sh&&sh.pos&&sh.items.every(function(x){return x.split(':')[0]!==sk.split(':')[0];})){G.stash.splice(si,1);sh.items.push(sk);LOG.push('EQUIP '+sk+' -> '+sh.hid);why('Gives '+d.ITEMS[sk.split(':')[0]].n+' from the item bench to '+d.HEROES[sh.hid].n+': an empty item slot is wasted power.');acted=true;}}
   while(n++<14){if(dlg())return 'dlg';
     var best=-1,bi=-1,bsc=-1e9;
     G.shop.forEach(function(o,i){if(o.sold)return;var p=d.priceOf(o);if(p>G.gold)return;var sc=offerScore(o);var v=sc-(p*.15);var bm=(G.step>=7||(G.enc&&G.enc.diff==='boss'))?1:CFG.buyMin;if(sc>=bm&&v>bsc){bsc=v;bi=i;}});
